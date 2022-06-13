@@ -20,3 +20,6 @@ target_link_libraries(testing PRIVATE Microsoft.GSL::GSL)
 
 find_package(glfw3 CONFIG REQUIRED)
 target_link_libraries(testing PRIVATE glfw)
+
+find_package(fmt CONFIG REQUIRED)
+target_link_libraries(testing PRIVATE fmt::fmt)

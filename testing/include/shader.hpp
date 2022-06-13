@@ -1,17 +1,16 @@
 #ifndef ANIMATION_RETARGETING_TESTING_SHADER_HPP
 #define ANIMATION_RETARGETING_TESTING_SHADER_HPP
 
+#include <fmt/format.h>
 #include <glad/glad.h>
 #include <glm/glm.hpp>
-#include <gsl/gsl>
+#include <gsl/span>
 
 #include <array>
-#include <iostream>
 
 namespace testing {
 
-namespace impl 
-{
+namespace detail {
 
 class Shader {
 private:
@@ -21,24 +20,22 @@ public:
     Shader(gsl::span<char const> const code, GLenum const type) :
         id_{glCreateShader(type)}
     {
-        auto const shader_id = glCreateShader(type);
-
         auto const* const code_data = code.data();
         auto const code_length = static_cast<GLint>(code.size());
-        glShaderSource(shader_id, 1, &code_data, &code_length);
+        glShaderSource(id_, 1, &code_data, &code_length);
 
-        glCompileShader(shader_id);
+        glCompileShader(id_);
 
         // Print any compilation errors.
 
         auto succeeded = GLint{};
-        glGetShaderiv(shader_id, GL_COMPILE_STATUS, &succeeded);
+        glGetShaderiv(id_, GL_COMPILE_STATUS, &succeeded);
 
         if (not succeeded) {
             std::array<char, 512> info_log;
-            glGetShaderInfoLog(shader_id, info_log.size(), nullptr, info_log.data());
+            glGetShaderInfoLog(id_, info_log.size(), nullptr, info_log.data());
 
-            std::cout << "Shader compilation failed:\n" << info_log.data() << '\n';
+            fmt::print("Shader compilation failed:\n{}\n", info_log.data());
         }
     }
 
@@ -57,19 +54,18 @@ public:
     }
 };
 
-} // namespace impl
+} // namespace detail
 
 class ShaderProgram {
 private:
     GLuint id_;
 
 public:
-    ShaderProgram(gsl::span<char const> const vertex_code, gsl::span<char const> const fragment_code) 
+    ShaderProgram(gsl::span<char const> const vertex_code, gsl::span<char const> const fragment_code) :
+        id_{glCreateProgram()}
     {
-        auto const vertex_shader = impl::Shader{vertex_code, GL_VERTEX_SHADER};
-        auto const fragment_shader = impl::Shader{fragment_code, GL_VERTEX_SHADER};
-
-        id_ = glCreateProgram();
+        auto const vertex_shader = detail::Shader{vertex_code, GL_VERTEX_SHADER};
+        auto const fragment_shader = detail::Shader{fragment_code, GL_VERTEX_SHADER};
 
         glAttachShader(id_, vertex_shader.id());
         glAttachShader(id_, fragment_shader.id());
@@ -83,8 +79,12 @@ public:
             std::array<char, 512> info_log;
             glGetProgramInfoLog(id_, info_log.size(), nullptr, info_log.data());
 
-            std::cout << "Shader linking failed:\n" << info_log.data() << '\n';
+            fmt::print("Shader linking failed:\n{}\n", info_log.data());
         }
+    }
+
+    ~ShaderProgram() {
+        glDeleteProgram(id_);
     }
 
     GLuint id() const {
