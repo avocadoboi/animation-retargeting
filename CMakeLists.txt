@@ -1,5 +1,7 @@
 cmake_minimum_required(VERSION 3.18.0)
-project(AnimationRetargeting VERSION 1.0.0 LANGUAGES C CXX)
+project(AnimationRetargeting VERSION 1.0.0 LANGUAGES CXX C)
+
+set(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake/)
 
 #---------------------------------------------------
 # Library target.
