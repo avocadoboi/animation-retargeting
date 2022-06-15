@@ -60,14 +60,14 @@ public:
             glViewport(0, 0, width, height);
         });
 
-        scene_ = std::make_unique<Scene>();
+        scene_ = std::make_unique<Scene>(window_size);
     }
 
     void run() const {
         while (not glfwWindowShouldClose(window_)) {
             process_input_();
 
-            glClearColor(0.f, 0.f, 0.f, 1.f);
+            glClearColor(0.1f, 0.1f, 0.1f, 1.f);
             glClear(GL_COLOR_BUFFER_BIT);
 
             scene_->draw();

@@ -60,6 +60,21 @@ Unique<T> create(Args&& ... args) {
     return Unique<T>{T::Create(std::forward<Args>(args)...)};
 }
 
+Unique<FbxScene> import_scene(FbxManager* manager, char const* const fbx_path)
+{
+    auto importer = fbx::create<FbxImporter>(manager, "");
+
+    if (not importer->Initialize(fbx_path, -1, manager->GetIOSettings()))
+    {
+        throw std::runtime_error{"Failed to initialize FBX importer."};
+    }
+
+    auto scene = fbx::create<FbxScene>(manager, "");
+    importer->Import(scene.get());
+
+    return scene;
+}
+
 } // namespace fbx
 
 } // namespace testing

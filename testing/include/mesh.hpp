@@ -26,7 +26,7 @@ struct Vertex {
 class Mesh {
 private:
     std::vector<Vertex> vertices_;
-    std::vector<std::size_t> indices_;
+    std::vector<GLuint> indices_;
 
     GLuint texture_id_;
 
@@ -35,7 +35,7 @@ private:
     GLuint ebo_;
 
 public:
-    Mesh(std::vector<Vertex> vertices, std::vector<std::size_t> indices, GLuint texture_id) :
+    Mesh(std::vector<Vertex> vertices, std::vector<GLuint> indices, GLuint texture_id) :
         vertices_{std::move(vertices)}, indices_{std::move(indices)}, texture_id_{texture_id}
     {
         glGenVertexArrays(1, &vao_);
@@ -43,11 +43,11 @@ public:
 
         glGenBuffers(1, &vbo_);
         glBindBuffer(GL_ARRAY_BUFFER, vbo_);
-        glBufferData(GL_ARRAY_BUFFER, vector_byte_size(vertices_), vertices.data(), GL_STATIC_DRAW);
+        glBufferData(GL_ARRAY_BUFFER, vector_byte_size(vertices_), vertices_.data(), GL_STATIC_DRAW);
 
         glGenBuffers(1, &ebo_);
         glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo_);
-        glBufferData(GL_ELEMENT_ARRAY_BUFFER, vector_byte_size(vertices_), vertices_.data(), GL_STATIC_DRAW);
+        glBufferData(GL_ELEMENT_ARRAY_BUFFER, vector_byte_size(indices_), indices_.data(), GL_STATIC_DRAW);
 
         // Vertex positions.
         glEnableVertexAttribArray(0);
@@ -63,9 +63,12 @@ public:
     }
 
     void draw() const {
-        glActiveTexture(GL_TEXTURE0);
+        if (texture_id_)
+        {
+            glActiveTexture(GL_TEXTURE0);
+            glBindTexture(GL_TEXTURE_2D, texture_id_);
+        }
 
-        glBindTexture(GL_TEXTURE_2D, texture_id_);
         glBindVertexArray(vao_);
         glDrawElements(GL_TRIANGLES, static_cast<GLsizei>(indices_.size()), GL_UNSIGNED_INT, nullptr);
         glBindVertexArray(0);

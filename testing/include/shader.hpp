@@ -4,7 +4,6 @@
 #include <fmt/format.h>
 #include <glad/glad.h>
 #include <glm/glm.hpp>
-#include <gsl/span>
 
 #include <array>
 
@@ -17,12 +16,10 @@ private:
     GLuint id_;
 
 public:
-    Shader(gsl::span<char const> const code, GLenum const type) :
+    Shader(char const* const code, GLenum const type) :
         id_{glCreateShader(type)}
     {
-        auto const* const code_data = code.data();
-        auto const code_length = static_cast<GLint>(code.size());
-        glShaderSource(id_, 1, &code_data, &code_length);
+        glShaderSource(id_, 1, &code, nullptr);
 
         glCompileShader(id_);
 
@@ -61,11 +58,11 @@ private:
     GLuint id_;
 
 public:
-    ShaderProgram(gsl::span<char const> const vertex_code, gsl::span<char const> const fragment_code) :
+    ShaderProgram(char const* const vertex_code, char const* const fragment_code) :
         id_{glCreateProgram()}
     {
         auto const vertex_shader = detail::Shader{vertex_code, GL_VERTEX_SHADER};
-        auto const fragment_shader = detail::Shader{fragment_code, GL_VERTEX_SHADER};
+        auto const fragment_shader = detail::Shader{fragment_code, GL_FRAGMENT_SHADER};
 
         glAttachShader(id_, vertex_shader.id());
         glAttachShader(id_, fragment_shader.id());
@@ -91,6 +88,10 @@ public:
         return id_;
     }
 
+    void use() const {
+        glUseProgram(id_);
+    }
+
     void set_bool(char const* const name, bool const value) {
         glUniform1i(glGetUniformLocation(id_, name), static_cast<GLint>(value));
     }
@@ -99,6 +100,10 @@ public:
     }
     void set_float(char const* const name, float const value) {
         glUniform1f(glGetUniformLocation(id_, name), static_cast<GLfloat>(value));
+    }
+
+    void set_mat4(char const* const name, glm::mat4 const matrix) {
+        glUniformMatrix4fv(glGetUniformLocation(id_, name), 1, GL_FALSE, &matrix[0][0]);
     }
 };
 

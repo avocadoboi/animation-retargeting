@@ -28,13 +28,10 @@ target_link_libraries(testing PRIVATE animation_retargeting)
 find_package(FbxSdk REQUIRED)
 target_link_libraries(testing PRIVATE FbxSdk::fbx_sdk)
 
+find_package(ZLIB REQUIRED)
+target_link_libraries(testing PRIVATE ZLIB::ZLIB)
+
 #---------------------------------------------------
-
-find_package(assimp CONFIG REQUIRED)
-target_link_libraries(testing PRIVATE assimp::assimp)
-
-find_package(Microsoft.GSL CONFIG REQUIRED)
-target_link_libraries(testing PRIVATE Microsoft.GSL::GSL)
 
 find_package(glfw3 CONFIG REQUIRED)
 target_link_libraries(testing PRIVATE glfw)
