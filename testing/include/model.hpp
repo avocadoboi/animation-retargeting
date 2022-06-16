@@ -14,58 +14,58 @@ private:
     std::vector<Mesh> meshes_;
     Texture texture_;
 
-    void load_mesh_(FbxMesh* const mesh)
+    void load_mesh_(FbxMesh const* const mesh)
     {
-        auto* const control_points = mesh->GetControlPoints();
-        auto const& normals = mesh->GetElementNormal()->GetDirectArray();
-        auto const& texture_coordinates = mesh->GetElementUV()->GetDirectArray();
+        auto const* const vertices_source = mesh->GetControlPoints();
 
+        auto const* const normal_layer = mesh->GetElementNormal();
+        auto const* const uv_layer = mesh->GetElementUV();
+        
         auto vertices = std::vector<Vertex>(mesh->GetControlPointsCount());
 
         for (auto i = std::size_t{}; i < vertices.size(); ++i)
         {
-            auto const point = control_points[i];
-            vertices[i].position = glm::vec3{
-                point.mData[0],
-                point.mData[1],
-                point.mData[2],
-            };
+            vertices[i].position = fbx::to_glm_vec(vertices_source[i]);
 
-            auto const normal = normals.GetAt(static_cast<int>(i));
-            vertices[i].normal = glm::vec3{
-                normal.mData[0],
-                normal.mData[1],
-                normal.mData[2],
-            };
-
-            auto const uv = texture_coordinates.GetAt(static_cast<int>(i));
-            vertices[i].texture_coordinates = glm::vec2{
-                uv.mData[0],
-                uv.mData[1],
-            };
+            if (normal_layer->GetMappingMode() == FbxLayerElement::EMappingMode::eByControlPoint)
+            {
+                vertices[i].normal = fbx::layer_element_at(normal_layer, static_cast<int>(i));
+            }
+            
+            if (uv_layer->GetMappingMode() == FbxLayerElement::EMappingMode::eByControlPoint)
+            {
+                vertices[i].texture_coordinates = fbx::layer_element_at(uv_layer, static_cast<int>(i));
+            }
         }
 
-        auto const& index_array = mesh->GetElementUV()->GetIndexArray();
-
-        auto indices = std::vector<GLuint>(index_array.GetCount());
+        auto const* const indices_source = mesh->GetPolygonVertices();
+        auto indices = std::vector<GLuint>(mesh->GetPolygonVertexCount());
 
         for (auto i = std::size_t{}; i < indices.size(); ++i)
         {
-            indices[i] = index_array.GetAt(static_cast<int>(i));
+            indices[i] = static_cast<GLuint>(indices_source[i]);
+
+            if (normal_layer->GetMappingMode() == FbxLayerElement::EMappingMode::eByPolygonVertex)
+            {
+                vertices[indices[i]].normal = fbx::layer_element_at(normal_layer, static_cast<int>(i));
+            }
+            
+            if (uv_layer->GetMappingMode() == FbxLayerElement::EMappingMode::eByPolygonVertex)
+            {
+                vertices[indices[i]].texture_coordinates = fbx::layer_element_at(uv_layer, static_cast<int>(i));
+            }
         }
         
         meshes_.emplace_back(std::move(vertices), std::move(indices), texture_.id());
     }
 
-    void load_meshes_(FbxNode* const node)
+    void load_meshes_(FbxNode const* const node)
     {
-        if (auto* const attribute = node->GetNodeAttribute())
+        if (auto const* const attribute = node->GetNodeAttribute())
         {
             if (attribute->GetAttributeType() == FbxNodeAttribute::eMesh)
             {
-                auto* const mesh = static_cast<FbxMesh*>(attribute);
-                
-                load_mesh_(mesh);
+                load_mesh_(static_cast<FbxMesh const*>(attribute));
             }
         }
 
@@ -73,6 +73,22 @@ private:
         {
             load_meshes_(node->GetChild(i));
         }
+    }
+
+    static fbx::Unique<FbxIOSettings> create_import_settings_(FbxManager* const manager)
+    {
+        auto settings = fbx::create<FbxIOSettings>(manager, IOSROOT);
+        settings->SetBoolProp(IMP_FBX_ANIMATION, false);
+        settings->SetBoolProp(IMP_FBX_AUDIO, false);
+        settings->SetBoolProp(IMP_FBX_BINORMAL, false);
+        settings->SetBoolProp(IMP_FBX_CHARACTER, false);
+        settings->SetBoolProp(IMP_FBX_CONSTRAINT, false);
+        settings->SetBoolProp(IMP_FBX_EXTRACT_EMBEDDED_DATA, false);
+        settings->SetBoolProp(IMP_FBX_MATERIAL, false);
+        settings->SetBoolProp(IMP_FBX_TANGENT, false);
+        settings->SetBoolProp(IMP_FBX_TEXTURE, false);
+        settings->SetBoolProp(IMP_FBX_VERTEXCOLOR, false);
+        return settings;
     }
 
 public:
@@ -83,11 +99,15 @@ public:
     {
         auto manager = fbx::create<FbxManager>();
         
-        // manager->SetIOSettings(fbx::create<FbxIOSettings>(manager.get(), IOSROOT).get());
+        auto settings = create_import_settings_(manager.get());
+        manager->SetIOSettings(settings.get());
         
         auto scene = fbx::import_scene(manager.get(), fbx_path);
 
-        auto* const root_node = scene->GetRootNode();
+        FbxGeometryConverter{manager.get()}.Triangulate(scene.get(), true);
+
+        auto const* const root_node = scene->GetRootNode();
+
         if (not root_node) {
             throw std::runtime_error{"An FBX scene did not contain a root node."};
         }

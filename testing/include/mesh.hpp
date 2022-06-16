@@ -35,7 +35,7 @@ private:
     GLuint ebo_;
 
 public:
-    Mesh(std::vector<Vertex> vertices, std::vector<GLuint> indices, GLuint texture_id) :
+    Mesh(std::vector<Vertex> vertices, std::vector<GLuint> indices, GLuint const texture_id) :
         vertices_{std::move(vertices)}, indices_{std::move(indices)}, texture_id_{texture_id}
     {
         glGenVertexArrays(1, &vao_);

@@ -2,6 +2,7 @@
 #define ANIMATION_RETARGETING_TESTING_FBX_HPP
 
 #include <fbxsdk.h>
+#include <glm/glm.hpp>
 
 namespace testing {
 
@@ -60,7 +61,7 @@ Unique<T> create(Args&& ... args) {
     return Unique<T>{T::Create(std::forward<Args>(args)...)};
 }
 
-Unique<FbxScene> import_scene(FbxManager* manager, char const* const fbx_path)
+inline Unique<FbxScene> import_scene(FbxManager* manager, char const* const fbx_path)
 {
     auto importer = fbx::create<FbxImporter>(manager, "");
 
@@ -73,6 +74,28 @@ Unique<FbxScene> import_scene(FbxManager* manager, char const* const fbx_path)
     importer->Import(scene.get());
 
     return scene;
+}
+
+inline glm::vec3 to_glm_vec(FbxVector4 const vector) {
+    return {
+        vector.mData[0],
+        vector.mData[1],
+        vector.mData[2],
+    };
+}
+inline glm::vec2 to_glm_vec(FbxVector2 const vector) {
+    return {
+        vector.mData[0],
+        vector.mData[1],
+    };
+}
+
+template<typename T>
+auto layer_element_at(FbxLayerElementTemplate<T> const* const layer, int const index)
+{
+    return to_glm_vec(layer->GetReferenceMode() == FbxLayerElement::EReferenceMode::eDirect 
+        ? layer->GetDirectArray().GetAt(index) 
+        : layer->GetDirectArray().GetAt(layer->GetIndexArray().GetAt(index)));
 }
 
 } // namespace fbx

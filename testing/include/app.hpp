@@ -56,6 +56,8 @@ public:
             throw std::runtime_error{"Failed to load OpenGL."};
         }
 
+        glEnable(GL_DEPTH_TEST);
+
         glfwSetFramebufferSizeCallback(window_, [](GLFWwindow*, int const width, int const height) {
             glViewport(0, 0, width, height);
         });
@@ -67,8 +69,8 @@ public:
         while (not glfwWindowShouldClose(window_)) {
             process_input_();
 
-            glClearColor(0.1f, 0.1f, 0.1f, 1.f);
-            glClear(GL_COLOR_BUFFER_BIT);
+            glClearColor(0.f, 0.f, 0.f, 1.f);
+            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
             scene_->draw();
             
