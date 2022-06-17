@@ -65,7 +65,7 @@ inline Unique<FbxScene> import_scene(FbxManager* manager, char const* const fbx_
 {
     auto importer = fbx::create<FbxImporter>(manager, "");
 
-    if (not importer->Initialize(fbx_path, -1, manager->GetIOSettings()))
+    if (!importer->Initialize(fbx_path, -1, manager->GetIOSettings()))
     {
         throw std::runtime_error{"Failed to initialize FBX importer."};
     }

@@ -19,7 +19,7 @@ struct Image {
     explicit Image(char const* const file_path) :
         data{stbi_load(file_path, &width, &height, &channel_count, 0)}
     {
-        if (not data) {
+        if (!data) {
             throw std::runtime_error{"Failed to load image."};
         }
     }
@@ -44,7 +44,7 @@ public:
     {
         stbi_set_flip_vertically_on_load(true);
         
-        auto const image = stb::Image{file_path};
+        stb::Image const image{file_path};
 
         auto const format = [&] {
             switch (image.channel_count) {

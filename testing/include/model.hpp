@@ -108,7 +108,7 @@ public:
 
         auto const* const root_node = scene->GetRootNode();
 
-        if (not root_node) {
+        if (!root_node) {
             throw std::runtime_error{"An FBX scene did not contain a root node."};
         }
 

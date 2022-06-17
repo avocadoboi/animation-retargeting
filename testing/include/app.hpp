@@ -10,8 +10,8 @@ namespace testing {
 struct GlfwInstance {
     GlfwInstance() {
         glfwInit();
-        glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
-        glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 6);
+        glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
+        glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
         glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
     }
     ~GlfwInstance() {
@@ -46,13 +46,13 @@ public:
     App() :
         window_{glfwCreateWindow(window_size.x, window_size.y, window_title, nullptr, nullptr)}
     {
-        if (not window_) {
+        if (!window_) {
             throw std::runtime_error{"Failed to create window."};
         }
         
         glfwMakeContextCurrent(window_);
 
-        if (not gladLoadGLLoader(reinterpret_cast<GLADloadproc>(glfwGetProcAddress))) {
+        if (!gladLoadGLLoader(reinterpret_cast<GLADloadproc>(glfwGetProcAddress))) {
             throw std::runtime_error{"Failed to load OpenGL."};
         }
 
@@ -66,7 +66,7 @@ public:
     }
 
     void run() const {
-        while (not glfwWindowShouldClose(window_)) {
+        while (!glfwWindowShouldClose(window_)) {
             process_input_();
 
             glClearColor(0.f, 0.f, 0.f, 1.f);

@@ -28,23 +28,37 @@ public:
         auto succeeded = GLint{};
         glGetShaderiv(id_, GL_COMPILE_STATUS, &succeeded);
 
-        if (not succeeded) {
+        if (!succeeded) {
             std::array<char, 512> info_log;
-            glGetShaderInfoLog(id_, info_log.size(), nullptr, info_log.data());
+            glGetShaderInfoLog(id_, static_cast<GLsizei>(info_log.size()), nullptr, info_log.data());
 
             fmt::print("Shader compilation failed:\n{}\n", info_log.data());
         }
     }
 
     ~Shader() {
-        glDeleteShader(id_);
+        if (id_) {
+            glDeleteShader(id_);
+        }
     }
 
     Shader(Shader const&) = delete;
     Shader const& operator=(Shader const&) = delete;
 
-    Shader(Shader&&) = delete;
-    Shader const& operator=(Shader&&) = delete;
+    Shader(Shader&& other) :
+        id_{other.id_}
+    {
+        other.id_ = 0;
+    }
+    Shader const& operator=(Shader&& other)
+    {
+        if (id_) {
+            glDeleteShader(id_);
+        }
+        id_ = other.id_;
+        other.id_ = 0;
+        return *this;
+    }
 
     GLuint id() const {
         return id_;
@@ -72,9 +86,9 @@ public:
         auto succeeded = GLint{};
         glGetProgramiv(id_, GL_LINK_STATUS, &succeeded);
 
-        if (not succeeded) {
+        if (!succeeded) {
             std::array<char, 512> info_log;
-            glGetProgramInfoLog(id_, info_log.size(), nullptr, info_log.data());
+            glGetProgramInfoLog(id_, static_cast<GLsizei>(info_log.size()), nullptr, info_log.data());
 
             fmt::print("Shader linking failed:\n{}\n", info_log.data());
         }
