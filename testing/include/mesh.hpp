@@ -3,12 +3,7 @@
 
 #include "shader.hpp"
 
-#include <glad/glad.h>
-#include <glm/glm.hpp>
-
-#include <string>
 #include <vector>
-#include <cstdint>
 
 namespace testing {
 

@@ -2,8 +2,10 @@
 add_executable(testing 
     include/app.hpp
     include/fbx.hpp
+    include/glfw.hpp
     include/mesh.hpp 
     include/model.hpp
+    include/player_view.hpp
     include/scene.hpp
     include/shader.hpp
     include/texture.hpp

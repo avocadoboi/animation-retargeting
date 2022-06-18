@@ -1,3 +1,5 @@
+// A few FBX SDK abstractions.
+
 #ifndef ANIMATION_RETARGETING_TESTING_FBX_HPP
 #define ANIMATION_RETARGETING_TESTING_FBX_HPP
 
@@ -5,7 +7,6 @@
 #include <glm/glm.hpp>
 
 namespace testing {
-
 namespace fbx {
 
 template<typename T>

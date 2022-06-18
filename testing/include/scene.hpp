@@ -2,8 +2,7 @@
 #define ANIMATION_RETARGETING_TESTING_SCENE_HPP
 
 #include "model.hpp"
-
-#include <glm/ext.hpp>
+#include "player_view.hpp"
 
 namespace testing {
 
@@ -45,21 +44,37 @@ void main()
 
 class Scene {
 private:
-    Model model_{"testing/data/models/human.fbx", Texture{"testing/data/models/human.png"}};
+    static constexpr auto player_position = glm::vec3{0.f, 8.f, 0.f};
+
+    Model model_{"testing/data/models/vampire.fbx", Texture{"testing/data/models/vampire.png"}};
     ShaderProgram shader_{vertex_shader, fragment_shader};
+    PlayerView view_{player_position};
+
+    void update_projection_(glm::vec2 const size) {
+        shader_.use();
+        shader_.set_mat4("projection", glm::perspective(glm::radians(50.f), size.x/size.y, 0.1f, 100.f));
+    }
 
 public:
-    Scene(glm::vec2 const size)
-    {
-        shader_.use();
-        shader_.set_mat4("projection", glm::perspective(glm::radians(45.f), size.x/size.y, 0.1f, 100.f));
+    Scene(glm::vec2 const size) {
+        update_projection_(size);
         shader_.set_mat4("view", glm::mat4{1.f});
-        shader_.set_mat4("model", glm::scale(glm::translate(glm::mat4{1.f}, glm::vec3{0.f, -7.f, -20.f}), glm::vec3{1.f/15.f}));
+        shader_.set_mat4("model", glm::scale(glm::translate(glm::mat4{1.f}, glm::vec3{0.f, 0.f, -20.f}), glm::vec3{1.f/15.f}));
         shader_.set_int("diffuse_texture", 0);
     }
 
-    void draw() const {
+    void handle_resize(glm::vec2 const new_size) {
+        update_projection_(new_size);
+    }
+
+    void update(glfw::InputState const& input_state) {
+        view_.update_movement(input_state);
+    }
+
+    void draw() {
         shader_.use();
+        shader_.set_mat4("view", view_.view_matrix());
+
         model_.draw();
     }
 };
