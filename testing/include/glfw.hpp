@@ -1,7 +1,7 @@
 // A few GLFW abstractions.
 
-#ifndef ANIMATION_RETARGETING_GLFW_HPP
-#define ANIMATION_RETARGETING_GLFW_HPP
+#ifndef ANIMATION_RETARGETING_TESTING_GLFW_HPP
+#define ANIMATION_RETARGETING_TESTING_GLFW_HPP
 
 #include <GLFW/glfw3.h>
 #include <glm/glm.hpp>

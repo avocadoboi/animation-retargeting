@@ -4,7 +4,7 @@ add_compile_options(
 	/experimental:external
 	/external:anglebrackets
 	/external:W0 
-	/WX 
+#	/WX 
 	/W4
 ) 
 

@@ -1,5 +1,6 @@
 
 add_executable(testing 
+    include/animation.hpp
     include/app.hpp
     include/fbx.hpp
     include/glfw.hpp
@@ -8,6 +9,7 @@ add_executable(testing
     include/player_view.hpp
     include/scene.hpp
     include/shader.hpp
+    include/skeleton.hpp
     include/texture.hpp
     source/main.cpp
     source/glad.c)

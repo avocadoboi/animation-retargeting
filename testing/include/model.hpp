@@ -3,6 +3,7 @@
 
 #include "fbx.hpp"
 #include "mesh.hpp"
+#include "skeleton.hpp"
 #include "texture.hpp"
 
 #include <fmt/format.h>
@@ -13,6 +14,29 @@ class Model {
 private:
     std::vector<Mesh> meshes_;
     Texture texture_;
+    Skeleton skeleton_;
+
+    void connect_bones_to_vertices_(FbxMesh const* const mesh, std::vector<Vertex>& vertices)
+    {
+        auto const* const skin = static_cast<FbxSkin*>(mesh->GetDeformer(0, FbxDeformer::eSkin));
+
+        auto const cluster_count = skin->GetClusterCount();
+        for (auto cluster_index = int{}; cluster_index < cluster_count; ++cluster_index)
+        {
+            auto const* const cluster = skin->GetCluster(cluster_index);
+
+            auto const bone_id = skeleton_.bone_id_by_name(cluster->GetLink()->GetName());
+
+            auto const control_point_count = cluster->GetControlPointIndicesCount();
+            auto const* const control_point_indices = cluster->GetControlPointIndices();
+            auto const* const control_point_weights = cluster->GetControlPointWeights();
+
+            for (auto j = int{}; j < control_point_count; ++j)
+            {
+                vertices[control_point_indices[j]].add_bone(bone_id, static_cast<float>(control_point_weights[j]));
+            }
+        }
+    }
 
     void load_mesh_(FbxMesh const* const mesh)
     {
@@ -55,11 +79,13 @@ private:
                 vertices[indices[i]].texture_coordinates = fbx::layer_element_at(uv_layer, static_cast<int>(i));
             }
         }
+
+        connect_bones_to_vertices_(mesh, vertices);
         
         meshes_.emplace_back(std::move(vertices), std::move(indices), texture_.id());
     }
 
-    void load_meshes_(FbxNode const* const node)
+    void process_node_(FbxNode const* const node)
     {
         if (auto const* const attribute = node->GetNodeAttribute())
         {
@@ -71,7 +97,7 @@ private:
 
         for (auto i = int{}; i < node->GetChildCount(); ++i)
         {
-            load_meshes_(node->GetChild(i));
+            process_node_(node->GetChild(i));
         }
     }
 
@@ -112,10 +138,16 @@ public:
             throw std::runtime_error{"An FBX scene did not contain a root node."};
         }
 
+        skeleton_.load_from_fbx_node(root_node);
+
         for (auto i = int{}; i < root_node->GetChildCount(); ++i)
         {
-            load_meshes_(root_node->GetChild(i));
+            process_node_(root_node->GetChild(i));
         }
+    }
+
+    Skeleton const& skeleton() const {
+        return skeleton_;
     }
     
     void draw() const {
