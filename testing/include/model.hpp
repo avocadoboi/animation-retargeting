@@ -25,7 +25,7 @@ private:
         {
             auto const* const cluster = skin->GetCluster(cluster_index);
 
-            auto const bone_id = skeleton_.bone_id_by_name(cluster->GetLink()->GetName());
+            auto const bone_id = skeleton_.bone_id_by_name(cluster->GetLink()->GetNameOnly());
 
             auto const control_point_count = cluster->GetControlPointIndicesCount();
             auto const* const control_point_indices = cluster->GetControlPointIndices();
@@ -132,7 +132,7 @@ public:
 
         FbxGeometryConverter{manager.get()}.Triangulate(scene.get(), true);
 
-        auto const* const root_node = scene->GetRootNode();
+        auto* const root_node = scene->GetRootNode();
 
         if (!root_node) {
             throw std::runtime_error{"An FBX scene did not contain a root node."};
@@ -147,6 +147,10 @@ public:
     }
 
     Skeleton const& skeleton() const {
+        return skeleton_;
+    }
+    
+    Skeleton& skeleton() {
         return skeleton_;
     }
     

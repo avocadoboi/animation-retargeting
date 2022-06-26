@@ -11,6 +11,7 @@ add_executable(testing
     include/shader.hpp
     include/skeleton.hpp
     include/texture.hpp
+    include/util.hpp
     source/main.cpp
     source/glad.c)
 

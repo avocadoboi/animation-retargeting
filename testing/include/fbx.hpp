@@ -99,6 +99,31 @@ auto layer_element_at(FbxLayerElementTemplate<T> const* const layer, int const i
         : layer->GetDirectArray().GetAt(layer->GetIndexArray().GetAt(index)));
 }
 
+inline FbxNode const* find_root_bone(FbxNode const* const root_node)
+{
+    if (auto const* const attribute = root_node->GetNodeAttribute())
+    {
+        if (attribute->GetAttributeType() == FbxNodeAttribute::eSkeleton)
+        {
+            return root_node;
+        }
+    }
+    
+    for (auto i = int{}; i < root_node->GetChildCount(); ++i)
+    {
+        if (auto const* const node = find_root_bone(root_node->GetChild(i)))
+        {
+            return node;
+        }
+    }
+
+    return nullptr;
+}
+inline FbxNode* find_root_bone(FbxNode* const root_node)
+{
+    return const_cast<FbxNode*>(find_root_bone(static_cast<FbxNode const*>(root_node)));
+}
+
 } // namespace fbx
 
 } // namespace testing
