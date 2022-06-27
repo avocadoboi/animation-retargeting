@@ -3,6 +3,7 @@
 
 #include <fbxsdk.h>
 #include <glm/ext.hpp>
+#include <glm/gtx/euler_angles.hpp>
 
 #include <vector>
 
@@ -29,9 +30,12 @@ glm::quat map(T const from_start, T const from_end, glm::quat const to_start, gl
 inline glm::vec3 fbx_to_glm(FbxDouble3 const vector) {
     return glm::vec3{vector.mData[0], vector.mData[1], vector.mData[2]};
 }
+inline glm::vec3 fbx_to_glm(FbxDouble4 const vector) {
+    return glm::vec3{vector.mData[0], vector.mData[1], vector.mData[2]};
+}
 
-inline glm::mat4 translation_scale_rotation(glm::vec3 const translation, glm::vec3 const scale, glm::quat const rotation) {
-    return glm::translate(glm::mat4_cast(rotation)*glm::scale(glm::mat4{1.f}, scale), translation);
+inline glm::mat4 euler_angles_to_mat4_xyz(glm::vec3 const euler) {
+    return glm::eulerAngleXYZ(euler.x, euler.y, euler.z);
 }
 
 // glm::quat euler_angles_to_quat(glm::vec3 const angles, FbxEuler::EOrder const order) 

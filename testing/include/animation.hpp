@@ -39,9 +39,9 @@ private:
     {
         if (auto* const bone = skeleton_->bone_by_name(bone_node->GetNameOnly())) 
         {
-            bone->translation_track = AnimationTrack<glm::vec3>{animation_layer, bone_node->LclTranslation};
             bone->scale_track = AnimationTrack<glm::vec3>{animation_layer, bone_node->LclScaling};
             bone->rotation_track = AnimationTrack<glm::quat>{animation_layer, bone_node->LclRotation};
+            bone->translation_track = AnimationTrack<glm::vec3>{animation_layer, bone_node->LclTranslation};
         }
         
         for (auto i = int{}; i < bone_node->GetChildCount(); ++i)
@@ -86,14 +86,14 @@ public:
 
         for (auto& bone : skeleton_->bones())
         {
-            auto const local_translation = bone.translation_track.evaluate(time, bone.default_translation);
             auto const local_scale = bone.scale_track.evaluate(time, bone.default_scale);
             auto const local_rotation = bone.rotation_track.evaluate(time, bone.default_rotation);
-            // auto const local_translation = bone.default_translation;
+            auto const local_translation = bone.translation_track.evaluate(time, bone.default_translation);
             // auto const local_scale = bone.default_scale;
             // auto const local_rotation = bone.default_rotation;
+            // auto const local_translation = bone.default_translation;
             
-            auto const local_transform = util::translation_scale_rotation(local_translation, local_scale, local_rotation);
+            auto const local_transform = bone.calculate_local_transform(local_scale, local_rotation, local_translation);
             
             if (bone.parent) {
                 bone.global_transform = bone.parent->global_transform * local_transform;

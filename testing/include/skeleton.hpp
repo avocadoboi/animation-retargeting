@@ -115,13 +115,22 @@ struct Bone {
     glm::mat4 global_transform;
     glm::mat4 animation_transform;
 
-    glm::vec3 default_translation;
+    glm::mat4 pre_scaling;
+    glm::mat4 pre_rotation;
+    glm::mat4 pre_translation;
+
     glm::vec3 default_scale;
     glm::quat default_rotation;
+    glm::vec3 default_translation;
 
-    AnimationTrack<glm::vec3> translation_track;
     AnimationTrack<glm::vec3> scale_track;
     AnimationTrack<glm::quat> rotation_track;
+    AnimationTrack<glm::vec3> translation_track;
+
+    glm::mat4 calculate_local_transform(glm::vec3 const scale, glm::quat const rotation, glm::vec3 const translation) const
+    {
+        return glm::translate(pre_translation * glm::mat4_cast(rotation) * pre_rotation * glm::scale(pre_scaling, scale), translation);
+    }
 };
 
 class Skeleton {
@@ -135,14 +144,29 @@ private:
         bone.name = bone_node->GetNameOnly();
         bone.id = static_cast<Bone::Id>(bones_.size());
 
-        bone.default_translation = util::fbx_to_glm(bone_node->LclTranslation.Get());
         bone.default_scale = util::fbx_to_glm(bone_node->LclScaling.Get());
         bone.default_rotation = glm::quat{glm::radians(util::fbx_to_glm(bone_node->LclRotation.Get()))};
+        bone.default_translation = util::fbx_to_glm(bone_node->LclTranslation.Get());
         
-        // auto real_local_inverse_transform = bone_node->EvaluateLocalTransform().Inverse();
+        /*
+            From the FBX SDK docs:
+            World = ParentWorld * T * Roff * Rp * Rpre * R * Rpost * Rp-1 * Soff * Sp * S * Sp-1
+            Here, I put Sp-1 into bone.pre_scaling, Rpost * Rp-1 * Soff * Sp into bone.pre_rotation, and Roff * Rp * Rpre into bone.pre_translation.
+            Notice that me and the FBX SDK use different pre/post terms... I think mine are correct because the right side of a matrix
+            multiplication is the transform that is applied first. T * R * S means scaling happens first, then rotation, then translation.
+        */
 
-        auto const local_inverse_transform = glm::inverse(util::translation_scale_rotation(
-            bone.default_translation, bone.default_scale, bone.default_rotation));
+        auto const scaling_pivot = util::fbx_to_glm(bone_node->GetScalingPivot(FbxNode::eSourcePivot));
+        bone.pre_scaling = glm::translate(glm::mat4{1.f}, -scaling_pivot);
+
+        auto const rotation_pivot = util::fbx_to_glm(bone_node->GetRotationPivot(FbxNode::eSourcePivot));
+        auto const post_rotation = util::euler_angles_to_mat4_xyz(glm::radians(util::fbx_to_glm(bone_node->GetPostRotation(FbxNode::eSourcePivot))));
+        bone.pre_rotation = post_rotation * glm::translate(glm::mat4{1.f}, -rotation_pivot + util::fbx_to_glm(bone_node->GetScalingOffset(FbxNode::eSourcePivot)) + scaling_pivot);
+
+        auto const pre_rotation = util::euler_angles_to_mat4_xyz(glm::radians(util::fbx_to_glm(bone_node->GetPreRotation(FbxNode::eSourcePivot))));
+        bone.pre_translation = glm::translate(pre_rotation, util::fbx_to_glm(bone_node->GetRotationOffset(FbxNode::eSourcePivot)) + rotation_pivot);
+
+        auto const local_inverse_transform = glm::inverse(bone.calculate_local_transform(bone.default_scale, bone.default_rotation, bone.default_translation));
 
         if (bone.parent) {
             bone.inverse_bind_transform = local_inverse_transform * bone.parent->inverse_bind_transform;
