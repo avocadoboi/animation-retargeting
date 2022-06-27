@@ -79,12 +79,7 @@ public:
         start_time_ = Clock_::now();
     }
 
-    /*
-        Updates the matrices for each bone at the current time and iterates through them using the passed function object.
-        The function object takes a glm::mat4 argument.
-    */
-    template<typename Function_>
-    void update_bone_matrices(Function_&& use_matrix)
+    void update_bone_matrices()
     {
         auto const time = std::chrono::duration_cast<Seconds>(Clock_::now() - start_time_)*0.05f;
         // auto const time = Seconds{};
@@ -107,7 +102,7 @@ public:
                 bone.global_transform = local_transform;
             }
 
-            use_matrix(bone.global_transform * bone.inverse_bind_transform);
+            bone.animation_transform = bone.global_transform * bone.inverse_bind_transform;
         }
     }
 };

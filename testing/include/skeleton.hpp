@@ -5,6 +5,7 @@
 #include "util.hpp"
 
 #include <fmt/format.h>
+#include <glad/glad.h>
 #include <glm/ext.hpp>
 
 #include <algorithm>
@@ -108,9 +109,11 @@ struct Bone {
 
     Bone const* parent;
     std::string name;
+    Id id;
 
     glm::mat4 inverse_bind_transform;
     glm::mat4 global_transform;
+    glm::mat4 animation_transform;
 
     glm::vec3 default_translation;
     glm::vec3 default_scale;
@@ -130,6 +133,7 @@ private:
         auto bone = Bone{};
         bone.parent = parent;
         bone.name = bone_node->GetNameOnly();
+        bone.id = static_cast<Bone::Id>(bones_.size());
 
         bone.default_translation = util::fbx_to_glm(bone_node->LclTranslation.Get());
         bone.default_scale = util::fbx_to_glm(bone_node->LclScaling.Get());
@@ -221,6 +225,79 @@ public:
     }
     std::vector<Bone>& bones() {
         return bones_;
+    }
+};
+
+struct SkeletonVertex {
+    glm::vec3 position;
+    Bone::Id bone_id;
+};
+
+class SkeletonMesh {
+private:
+    std::vector<SkeletonVertex> vertices_;
+    std::vector<GLuint> indices_;
+
+    GLuint vao_;
+    GLuint vbo_;
+    GLuint ebo_;
+
+    void load_skeleton_(Skeleton const& skeleton) 
+    {
+        vertices_.reserve(skeleton.bone_count());
+        indices_.reserve(skeleton.bone_count()*2);
+        
+        for (auto const& bone : skeleton.bones()) 
+        {
+            if (bone.parent) {
+                indices_.push_back(bone.parent->id);
+                indices_.push_back(bone.id);
+            }
+            
+            vertices_.push_back(SkeletonVertex{bone.inverse_bind_transform * glm::vec4{0.f, 0.f, 0.f, -1.f}, bone.id});
+        }
+    }
+
+    void create_gpu_buffers_()
+    {
+        glGenVertexArrays(1, &vao_);
+        glBindVertexArray(vao_);
+
+        // Vertices.
+        glGenBuffers(1, &vbo_);
+        glBindBuffer(GL_ARRAY_BUFFER, vbo_);
+        glBufferData(GL_ARRAY_BUFFER, util::vector_byte_size(vertices_), vertices_.data(), GL_STATIC_DRAW);
+
+        // Vertex indices.
+        glGenBuffers(1, &ebo_);
+        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo_);
+        glBufferData(GL_ELEMENT_ARRAY_BUFFER, util::vector_byte_size(indices_), indices_.data(), GL_STATIC_DRAW);
+    }
+
+    void set_vertex_attributes_()
+    {
+        // Bone vertex positions.
+        glEnableVertexAttribArray(0);
+        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(SkeletonVertex), nullptr);
+
+        // Bone index.
+        glEnableVertexAttribArray(1);
+        glVertexAttribIPointer(1, 1, GL_UNSIGNED_INT, sizeof(SkeletonVertex), reinterpret_cast<void const*>(offsetof(SkeletonVertex, bone_id)));
+    }
+
+public:
+    SkeletonMesh(Skeleton const& skeleton) {
+        load_skeleton_(skeleton);
+        create_gpu_buffers_();
+        set_vertex_attributes_();
+
+        glLineWidth(3.f);
+    }
+    
+    void draw() {
+        glBindVertexArray(vao_);
+        glDrawElements(GL_LINES, static_cast<GLsizei>(indices_.size()), GL_UNSIGNED_INT, nullptr);
+        glBindVertexArray(0);
     }
 };
 

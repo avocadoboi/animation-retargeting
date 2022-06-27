@@ -8,23 +8,18 @@
 
 namespace testing {
 
-template<typename T>
-std::size_t vector_byte_size(std::vector<T> const& vector) {
-    return vector.size()*sizeof(T);
-}
-
 struct Vertex {
     glm::vec3 position;
     glm::vec3 normal;
     glm::vec2 texture_coordinates;
 
     static constexpr auto max_bone_influence = std::size_t{4};
-    std::array<Bone::Id, max_bone_influence> bone_ids;
+    std::array<Bone::Id, max_bone_influence> bone_ids{};
     std::array<float, max_bone_influence> bone_weights{};
 
     void add_bone(Bone::Id const id, float const weight)
     {
-        if (weight == 0.f) {
+        if (weight < 0.01f) {
             return;
         }
         for (auto i = std::size_t{}; i < max_bone_influence; ++i) {
@@ -34,6 +29,7 @@ struct Vertex {
                 return;
             }
         }
+        fmt::print("Too many bone influences!!!\n");
     }
 };
 
@@ -56,12 +52,12 @@ private:
         // Vertices.
         glGenBuffers(1, &vbo_);
         glBindBuffer(GL_ARRAY_BUFFER, vbo_);
-        glBufferData(GL_ARRAY_BUFFER, vector_byte_size(vertices_), vertices_.data(), GL_STATIC_DRAW);
+        glBufferData(GL_ARRAY_BUFFER, util::vector_byte_size(vertices_), vertices_.data(), GL_STATIC_DRAW);
 
         // Vertex indices.
         glGenBuffers(1, &ebo_);
         glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo_);
-        glBufferData(GL_ELEMENT_ARRAY_BUFFER, vector_byte_size(indices_), indices_.data(), GL_STATIC_DRAW);
+        glBufferData(GL_ELEMENT_ARRAY_BUFFER, util::vector_byte_size(indices_), indices_.data(), GL_STATIC_DRAW);
     }
 
     void set_vertex_attributes_()

@@ -4,9 +4,16 @@
 #include <fbxsdk.h>
 #include <glm/ext.hpp>
 
+#include <vector>
+
 namespace testing {
 
 namespace util {
+
+template<typename T>
+std::size_t vector_byte_size(std::vector<T> const& vector) {
+    return vector.size()*sizeof(T);
+}
 
 template<typename T, typename U>
 U map(T const from_start, T const from_end, U const to_start, U const to_end, T const from)
