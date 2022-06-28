@@ -33,10 +33,10 @@ void main()
     uv = in_uv;
     normal = in_normal;
 
-    mat4 bone_transform = bone_matrices[bone_ids[0]+1u] * bone_weights[0];
-    bone_transform += bone_matrices[bone_ids[1]+1u] * bone_weights[1];
-    bone_transform += bone_matrices[bone_ids[2]+1u] * bone_weights[2];
-    bone_transform += bone_matrices[bone_ids[3]+1u] * bone_weights[3];
+    mat4 bone_transform = bone_matrices[bone_ids[0]] * bone_weights[0];
+    bone_transform += bone_matrices[bone_ids[1]] * bone_weights[1];
+    bone_transform += bone_matrices[bone_ids[2]] * bone_weights[2];
+    bone_transform += bone_matrices[bone_ids[3]] * bone_weights[3];
 
     gl_Position = projection * view * model * bone_transform * vec4(in_pos, 1.f);
     //normal = normalize(total_normal);
@@ -82,7 +82,7 @@ constexpr auto skeleton_fragment_shader = R"(
 out vec4 fragment_color;
 
 void main() {
-    fragment_color = vec4(0.f, 1.f, 0.f, 1.f);
+    fragment_color = vec4(0.f, 1.f, 0.f, 0.7f);
 }
 )";
 
@@ -119,7 +119,7 @@ public:
     Scene(glm::vec2 const size) {
         update_projection_(size);
 
-        auto const model_transform = glm::scale(glm::translate(glm::mat4{1.f}, glm::vec3{0.f, 0.f, -20.f}), glm::vec3{1.f/15.f});
+        auto const model_transform = glm::translate(glm::mat4{1.f}, glm::vec3{0.f, 0.f, -20.f}) * glm::scale(glm::mat4{1.f}, glm::vec3{1.f/15.f});
         model_shader_.use();
         model_shader_.set_mat4("view", glm::mat4{1.f});
         model_shader_.set_mat4("model", model_transform);

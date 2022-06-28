@@ -78,6 +78,10 @@ public:
         return keyframes_.empty();
     }
 
+	Seconds duration() const {
+		return keyframes_.empty() ? Seconds{} : keyframes_.back().time;
+	}
+
     T evaluate(Seconds const time) const {
         assert(!keyframes_.empty());
         
@@ -129,7 +133,7 @@ struct Bone {
 
     glm::mat4 calculate_local_transform(glm::vec3 const scale, glm::quat const rotation, glm::vec3 const translation) const
     {
-        return glm::translate(pre_translation * glm::mat4_cast(rotation) * pre_rotation * glm::scale(pre_scaling, scale), translation);
+        return glm::translate(glm::mat4{1.f}, translation) * pre_translation * glm::mat4_cast(rotation) * pre_rotation * glm::scale(glm::mat4{1.f}, scale) * pre_scaling;
     }
 };
 
@@ -164,7 +168,7 @@ private:
         bone.pre_rotation = post_rotation * glm::translate(glm::mat4{1.f}, -rotation_pivot + util::fbx_to_glm(bone_node->GetScalingOffset(FbxNode::eSourcePivot)) + scaling_pivot);
 
         auto const pre_rotation = util::euler_angles_to_mat4_xyz(glm::radians(util::fbx_to_glm(bone_node->GetPreRotation(FbxNode::eSourcePivot))));
-        bone.pre_translation = glm::translate(pre_rotation, util::fbx_to_glm(bone_node->GetRotationOffset(FbxNode::eSourcePivot)) + rotation_pivot);
+        bone.pre_translation = glm::translate(glm::mat4{1.f}, util::fbx_to_glm(bone_node->GetRotationOffset(FbxNode::eSourcePivot)) + rotation_pivot) * pre_rotation;
 
         auto const local_inverse_transform = glm::inverse(bone.calculate_local_transform(bone.default_scale, bone.default_rotation, bone.default_translation));
 
@@ -199,15 +203,21 @@ public:
         bones_.reserve(256);
     }
 
-    void load_from_fbx_node(FbxNode* const root_node) 
+    void load_from_fbx_node(FbxNode* const node) 
     {
-        if (auto* const root_bone = fbx::find_root_bone(root_node)) 
-        {
-            add_bone_(root_bone, nullptr);
-        }
-        else {
-            throw std::runtime_error{"Skeleton did not have root bone."};
-        }
+		if (auto const* const attribute = node->GetNodeAttribute())
+		{
+			if (attribute->GetAttributeType() == FbxNodeAttribute::eSkeleton)
+			{
+				add_bone_(node, nullptr);
+				return;
+			}
+		}
+		
+		for (auto i = int{}; i < node->GetChildCount(); ++i)
+		{
+			load_from_fbx_node(node->GetChild(i));
+		}		
     }
 
     Bone const* bone_by_name(char const* const name) const
@@ -277,8 +287,8 @@ private:
                 indices_.push_back(bone.parent->id);
                 indices_.push_back(bone.id);
             }
-            
-            vertices_.push_back(SkeletonVertex{bone.inverse_bind_transform * glm::vec4{0.f, 0.f, 0.f, -1.f}, bone.id});
+
+            vertices_.push_back(SkeletonVertex{glm::inverse(bone.inverse_bind_transform) * glm::vec4{0.f, 0.f, 0.f, 1.f}, bone.id});
         }
     }
 
@@ -314,12 +324,11 @@ public:
         load_skeleton_(skeleton);
         create_gpu_buffers_();
         set_vertex_attributes_();
-
-        glLineWidth(3.f);
     }
     
     void draw() {
         glBindVertexArray(vao_);
+        glLineWidth(1.f);
         glDrawElements(GL_LINES, static_cast<GLsizei>(indices_.size()), GL_UNSIGNED_INT, nullptr);
         glBindVertexArray(0);
     }

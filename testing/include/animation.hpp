@@ -35,19 +35,25 @@ private:
     Skeleton* skeleton_;
     std::chrono::time_point<Clock_> start_time_{Clock_::now()};
 
-    void load_animation_(FbxNode* const bone_node, FbxAnimLayer* const animation_layer)
+    void load_animation_(FbxNode* const node, FbxAnimLayer* const animation_layer)
     {
-        if (auto* const bone = skeleton_->bone_by_name(bone_node->GetNameOnly())) 
-        {
-            bone->scale_track = AnimationTrack<glm::vec3>{animation_layer, bone_node->LclScaling};
-            bone->rotation_track = AnimationTrack<glm::quat>{animation_layer, bone_node->LclRotation};
-            bone->translation_track = AnimationTrack<glm::vec3>{animation_layer, bone_node->LclTranslation};
-        }
-        
-        for (auto i = int{}; i < bone_node->GetChildCount(); ++i)
-        {
-            load_animation_(bone_node->GetChild(i), animation_layer);
-        }
+		if (auto const* const attribute = node->GetNodeAttribute())
+		{
+			if (attribute->GetAttributeType() == FbxNodeAttribute::eSkeleton)
+			{
+                if (auto* const bone = skeleton_->bone_by_name(node->GetNameOnly())) 
+                {
+                    bone->scale_track = AnimationTrack<glm::vec3>{animation_layer, node->LclScaling};
+                    bone->rotation_track = AnimationTrack<glm::quat>{animation_layer, node->LclRotation};
+                    bone->translation_track = AnimationTrack<glm::vec3>{animation_layer, node->LclTranslation};
+                }
+			}
+		}
+		
+		for (auto i = int{}; i < node->GetChildCount(); ++i)
+		{
+			load_animation_(node->GetChild(i), animation_layer);
+		}	
     }
 
 public:
@@ -61,6 +67,8 @@ public:
         
         auto scene = fbx::import_scene(manager.get(), fbx_path);
 
+        FbxAxisSystem::OpenGL.DeepConvertScene(scene.get());
+
         auto* const root_node = scene->GetRootNode();
 
         if (!root_node) {
@@ -71,8 +79,8 @@ public:
         auto const* const animation_stack = static_cast<FbxAnimStack const*>(scene->GetSrcObject(FbxCriteria::ObjectType(FbxAnimStack::ClassId)));
         // auto const layer_count = animation_stack->GetMemberCount(FbxCriteria::ObjectType(FbxAnimLayer::ClassId));
         auto* const animation_layer = static_cast<FbxAnimLayer*>(animation_stack->GetMember(FbxCriteria::ObjectType(FbxAnimLayer::ClassId)));
-
-        load_animation_(fbx::find_root_bone(root_node), animation_layer);
+        
+        load_animation_(root_node, animation_layer);
     }
 
     void restart() {
@@ -81,8 +89,12 @@ public:
 
     void update_bone_matrices()
     {
-        auto const time = std::chrono::duration_cast<Seconds>(Clock_::now() - start_time_)*0.05f;
-        // auto const time = Seconds{};
+        auto const time = std::chrono::duration_cast<Seconds>(Clock_::now() - start_time_)*0.5f;
+
+        // Hack, remove later
+        if (time > skeleton_->bones()[0].translation_track.duration()) {
+            restart();
+        }
 
         for (auto& bone : skeleton_->bones())
         {

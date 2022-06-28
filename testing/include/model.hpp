@@ -130,6 +130,8 @@ public:
         
         auto scene = fbx::import_scene(manager.get(), fbx_path);
 
+        FbxAxisSystem::OpenGL.DeepConvertScene(scene.get());
+
         FbxGeometryConverter{manager.get()}.Triangulate(scene.get(), true);
 
         auto* const root_node = scene->GetRootNode();

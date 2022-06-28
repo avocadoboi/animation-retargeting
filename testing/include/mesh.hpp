@@ -19,7 +19,7 @@ struct Vertex {
 
     void add_bone(Bone::Id const id, float const weight)
     {
-        if (weight < 0.01f) {
+        if (weight < 0.02f) {
             return;
         }
         for (auto i = std::size_t{}; i < max_bone_influence; ++i) {
@@ -29,7 +29,7 @@ struct Vertex {
                 return;
             }
         }
-        fmt::print("Too many bone influences!!!\n");
+        fmt::print("Too many bone influences!!! Tried to add weight {}\n", weight);
     }
 };
 

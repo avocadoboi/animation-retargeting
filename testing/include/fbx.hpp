@@ -119,10 +119,6 @@ inline FbxNode const* find_root_bone(FbxNode const* const root_node)
 
     return nullptr;
 }
-inline FbxNode* find_root_bone(FbxNode* const root_node)
-{
-    return const_cast<FbxNode*>(find_root_bone(static_cast<FbxNode const*>(root_node)));
-}
 
 } // namespace fbx
 
