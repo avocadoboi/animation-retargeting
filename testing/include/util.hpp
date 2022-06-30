@@ -4,6 +4,7 @@
 #include <fbxsdk.h>
 #include <glm/ext.hpp>
 #include <glm/gtx/euler_angles.hpp>
+#include <glm/gtc/type_ptr.hpp>
 
 #include <vector>
 
@@ -27,6 +28,9 @@ glm::quat map(T const from_start, T const from_end, glm::quat const to_start, gl
     return glm::slerp(to_start, to_end, (from - from_start)/(from_end - from_start));
 }
 
+inline glm::mat4 fbx_to_glm(FbxAMatrix const& m) {
+    return glm::make_mat4(static_cast<double const*>(m));
+}
 inline glm::vec3 fbx_to_glm(FbxDouble3 const vector) {
     return glm::vec3{vector.mData[0], vector.mData[1], vector.mData[2]};
 }

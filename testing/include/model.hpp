@@ -18,14 +18,15 @@ private:
 
     void connect_bones_to_vertices_(FbxMesh const* const mesh, std::vector<Vertex>& vertices)
     {
-        auto const* const skin = static_cast<FbxSkin*>(mesh->GetDeformer(0, FbxDeformer::eSkin));
+        auto const* const skin = static_cast<FbxSkin const*>(mesh->GetDeformer(0, FbxDeformer::eSkin));
 
         auto const cluster_count = skin->GetClusterCount();
         for (auto cluster_index = int{}; cluster_index < cluster_count; ++cluster_index)
         {
             auto const* const cluster = skin->GetCluster(cluster_index);
 
-            auto const bone_id = skeleton_.bone_id_by_name(cluster->GetLink()->GetNameOnly());
+            auto const name = cluster->GetLink()->GetNameOnly();
+            auto const bone_id = skeleton_.bone_id_by_name(name);
 
             auto const control_point_count = cluster->GetControlPointIndicesCount();
             auto const* const control_point_indices = cluster->GetControlPointIndices();
@@ -40,6 +41,8 @@ private:
 
     void load_mesh_(FbxMesh const* const mesh)
     {
+        auto const transform = util::fbx_to_glm(mesh->GetNode()->EvaluateGlobalTransform());
+        
         auto const* const vertices_source = mesh->GetControlPoints();
 
         auto const* const normal_layer = mesh->GetElementNormal();
@@ -49,7 +52,7 @@ private:
 
         for (auto i = std::size_t{}; i < vertices.size(); ++i)
         {
-            vertices[i].position = fbx::to_glm_vec(vertices_source[i]);
+            vertices[i].position = transform*glm::vec4{fbx::to_glm_vec(vertices_source[i]), 1.f};
 
             if (normal_layer->GetMappingMode() == FbxLayerElement::EMappingMode::eByControlPoint)
             {
@@ -82,7 +85,7 @@ private:
 
         connect_bones_to_vertices_(mesh, vertices);
         
-        meshes_.emplace_back(std::move(vertices), std::move(indices), texture_.id());
+        meshes_.emplace_back(vertices, indices, texture_.id());
     }
 
     void process_node_(FbxNode const* const node)

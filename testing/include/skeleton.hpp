@@ -7,6 +7,7 @@
 #include <fmt/format.h>
 #include <glad/glad.h>
 #include <glm/ext.hpp>
+#include <glm/gtx/component_wise.hpp>
 
 #include <algorithm>
 #include <array>
@@ -30,16 +31,16 @@ private:
     std::vector<Keyframe<T>> keyframes_;
 
     template<typename U = T>
-    static auto create_value_(float const x, float const y, float const z)
+    static auto create_value_(FbxDouble3 const vector)
         -> std::enable_if_t<std::is_same<U, glm::vec3>::value, U>
     {
-        return glm::vec3{x, y, z};
+        return util::fbx_to_glm(vector);
     }
     template<typename U = T>
-    static auto create_value_(float const x, float const y, float const z)
+    static auto create_value_(FbxDouble3 const vector)
         -> std::enable_if_t<std::is_same<U, glm::quat>::value, U>
     {
-        return glm::quat{glm::radians(glm::vec3{x, y, z})};
+        return glm::quat{glm::radians(util::fbx_to_glm(vector))};
     }
 
 public:
@@ -50,25 +51,43 @@ public:
     {}
     AnimationTrack(FbxAnimLayer* const layer, FbxPropertyT<FbxDouble3>& property)
     {
-        auto const* const curve_x = property.GetCurve(layer, FBXSDK_CURVENODE_COMPONENT_X);
-        auto const* const curve_y = property.GetCurve(layer, FBXSDK_CURVENODE_COMPONENT_Y);
-        auto const* const curve_z = property.GetCurve(layer, FBXSDK_CURVENODE_COMPONENT_Z);
+        auto const curves = std::array<FbxAnimCurve const*, 3>{
+            property.GetCurve(layer, FBXSDK_CURVENODE_COMPONENT_X),
+            property.GetCurve(layer, FBXSDK_CURVENODE_COMPONENT_Y),
+            property.GetCurve(layer, FBXSDK_CURVENODE_COMPONENT_Z),
+        };
 
-        if (curve_x && curve_y && curve_z)
+        if (curves[0] || curves[1] || curves[2])
         {
-            auto const key_count = curve_x->KeyGetCount();
+            auto const get_key_count = [](auto const* const curve) { return curve ? curve->KeyGetCount() : 0; };
+            auto const key_counts = glm::ivec3{get_key_count(curves[0]), get_key_count(curves[1]), get_key_count(curves[2])};
 
-            keyframes_.reserve(key_count);
+            keyframes_.reserve(glm::compMax(key_counts));
 
-            for (auto i = int{}; i < key_count; ++i)
+            // The current keyframe index for each curve/channel.
+            auto cursors = glm::ivec3{};
+
+            while (cursors != key_counts)
             {
+                // Pick the curve/channel with the next keyframe time.
+                auto const channel = std::min({0u, 1u, 2u}, [&](auto const a, auto const b) {
+                    return cursors[a] != key_counts[a] ? cursors[b] != key_counts[b] ? 
+                        curves[a]->KeyGetTime(cursors[a]) < curves[b]->KeyGetTime(cursors[b]) : a : b;
+                });
+                
+                auto const time = curves[channel]->KeyGetTime(cursors[channel]);
+
+                // Increment the keyframe cursor(s).
+                ++cursors[channel];
+                for (auto const i : {0u, 1u, 2u}) {
+                    if (i != channel && cursors[i] != key_counts[i] && curves[i]->KeyGetTime(cursors[i]).GetMilliSeconds() <= time.GetMilliSeconds() + 1) {
+                        ++cursors[i];
+                    }
+                }
+
                 keyframes_.push_back(Keyframe<T>{
-                    Seconds{curve_x->KeyGetTime(i).GetSecondDouble()}, 
-                    create_value_(
-                        curve_x->KeyGetValue(i),
-                        curve_y->KeyGetValue(i),
-                        curve_z->KeyGetValue(i)
-                    )
+                    Seconds{time.GetSecondDouble()},
+                    create_value_(property.EvaluateValue(time))
                 });
             }
         }
@@ -122,6 +141,7 @@ struct Bone {
     glm::mat4 pre_scaling;
     glm::mat4 pre_rotation;
     glm::mat4 pre_translation;
+    glm::mat4 post_translation;
 
     glm::vec3 default_scale;
     glm::quat default_rotation;
@@ -133,13 +153,14 @@ struct Bone {
 
     glm::mat4 calculate_local_transform(glm::vec3 const scale, glm::quat const rotation, glm::vec3 const translation) const
     {
-        return glm::translate(glm::mat4{1.f}, translation) * pre_translation * glm::mat4_cast(rotation) * pre_rotation * glm::scale(glm::mat4{1.f}, scale) * pre_scaling;
+        return post_translation * glm::translate(glm::mat4{1.f}, translation) * pre_translation * glm::mat4_cast(rotation) * pre_rotation * glm::scale(glm::mat4{1.f}, scale) * pre_scaling;
     }
 };
 
 class Skeleton {
 private:
     std::vector<Bone> bones_;
+    glm::mat4 root_transform_;
 
     void add_bone_(FbxNode* const bone_node, Bone const* parent)
     {
@@ -170,10 +191,18 @@ private:
         auto const pre_rotation = util::euler_angles_to_mat4_xyz(glm::radians(util::fbx_to_glm(bone_node->GetPreRotation(FbxNode::eSourcePivot))));
         bone.pre_translation = glm::translate(glm::mat4{1.f}, util::fbx_to_glm(bone_node->GetRotationOffset(FbxNode::eSourcePivot)) + rotation_pivot) * pre_rotation;
 
+        // Add the parent node's global transform if this is a root bone.
+        if (parent) {
+            bone.post_translation = glm::mat4{1.f};
+        }
+        else {
+            bone.post_translation = util::fbx_to_glm(bone_node->GetParent()->EvaluateGlobalTransform());
+        }
+
         auto const local_inverse_transform = glm::inverse(bone.calculate_local_transform(bone.default_scale, bone.default_rotation, bone.default_translation));
 
-        if (bone.parent) {
-            bone.inverse_bind_transform = local_inverse_transform * bone.parent->inverse_bind_transform;
+        if (parent) {
+            bone.inverse_bind_transform = local_inverse_transform * parent->inverse_bind_transform;
         }
         else {
             bone.inverse_bind_transform = local_inverse_transform;

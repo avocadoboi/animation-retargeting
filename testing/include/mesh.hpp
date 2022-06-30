@@ -35,29 +35,27 @@ struct Vertex {
 
 class Mesh {
 private:
-    std::vector<Vertex> vertices_;
-    std::vector<GLuint> indices_;
-
+    GLsizei index_count_;
     GLuint texture_id_;
 
     GLuint vao_;
     GLuint vbo_;
     GLuint ebo_;
 
-    void create_gpu_buffers_()
-    {
+    void create_gpu_buffers_(std::vector<Vertex> const& vertices, std::vector<GLuint> const& indices)
+    {        
         glGenVertexArrays(1, &vao_);
         glBindVertexArray(vao_);
 
         // Vertices.
         glGenBuffers(1, &vbo_);
         glBindBuffer(GL_ARRAY_BUFFER, vbo_);
-        glBufferData(GL_ARRAY_BUFFER, util::vector_byte_size(vertices_), vertices_.data(), GL_STATIC_DRAW);
+        glBufferData(GL_ARRAY_BUFFER, util::vector_byte_size(vertices), vertices.data(), GL_STATIC_DRAW);
 
         // Vertex indices.
         glGenBuffers(1, &ebo_);
         glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo_);
-        glBufferData(GL_ELEMENT_ARRAY_BUFFER, util::vector_byte_size(indices_), indices_.data(), GL_STATIC_DRAW);
+        glBufferData(GL_ELEMENT_ARRAY_BUFFER, util::vector_byte_size(indices), indices.data(), GL_STATIC_DRAW);
     }
 
     void set_vertex_attributes_()
@@ -85,10 +83,10 @@ private:
     }
 
 public:
-    Mesh(std::vector<Vertex> vertices, std::vector<GLuint> indices, GLuint const texture_id) :
-        vertices_{std::move(vertices)}, indices_{std::move(indices)}, texture_id_{texture_id}
+    Mesh(std::vector<Vertex> const& vertices, std::vector<GLuint> const& indices, GLuint const texture_id) :
+        index_count_{static_cast<GLsizei>(indices.size())}, texture_id_{texture_id}
     {
-        create_gpu_buffers_();
+        create_gpu_buffers_(vertices, indices);
         set_vertex_attributes_();
     }
 
@@ -100,7 +98,7 @@ public:
         }
 
         glBindVertexArray(vao_);
-        glDrawElements(GL_TRIANGLES, static_cast<GLsizei>(indices_.size()), GL_UNSIGNED_INT, nullptr);
+        glDrawElements(GL_TRIANGLES, index_count_, GL_UNSIGNED_INT, nullptr);
         glBindVertexArray(0);
     }
 };

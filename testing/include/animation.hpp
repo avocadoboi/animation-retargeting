@@ -75,12 +75,19 @@ public:
             throw std::runtime_error{"An FBX scene did not contain a root node."};
         }
 
-        // auto const stack_count = scene->GetSrcObjectCount(FbxCriteria::ObjectType(FbxAnimStack::ClassId));
-        auto const* const animation_stack = static_cast<FbxAnimStack const*>(scene->GetSrcObject(FbxCriteria::ObjectType(FbxAnimStack::ClassId)));
-        // auto const layer_count = animation_stack->GetMemberCount(FbxCriteria::ObjectType(FbxAnimLayer::ClassId));
-        auto* const animation_layer = static_cast<FbxAnimLayer*>(animation_stack->GetMember(FbxCriteria::ObjectType(FbxAnimLayer::ClassId)));
+        auto const stack_count = scene->GetSrcObjectCount(FbxCriteria::ObjectType(FbxAnimStack::ClassId));
+        for (auto stack_index = 0; stack_index < stack_count; ++stack_index)
+        {
+            auto const* const animation_stack = static_cast<FbxAnimStack const*>(scene->GetSrcObject(FbxCriteria::ObjectType(FbxAnimStack::ClassId), stack_index));
+
+            auto const layer_count = animation_stack->GetMemberCount(FbxCriteria::ObjectType(FbxAnimLayer::ClassId));
+            for (auto layer_index = 0; layer_index < layer_count; ++layer_index)
+            {
+                auto* const animation_layer = static_cast<FbxAnimLayer*>(animation_stack->GetMember(FbxCriteria::ObjectType(FbxAnimLayer::ClassId), layer_index));
+                load_animation_(root_node, animation_layer);
+            }
+        }
         
-        load_animation_(root_node, animation_layer);
     }
 
     void restart() {

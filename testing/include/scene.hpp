@@ -15,8 +15,8 @@ layout (location = 0) in vec3 in_pos;
 layout (location = 1) in vec3 in_normal;
 layout (location = 2) in vec2 in_uv;
 
-layout (location = 3) in uint bone_ids[4];
-layout (location = 4) in float bone_weights[4];
+layout (location = 3) in uvec4 bone_ids;
+layout (location = 4) in vec4 bone_weights;
 
 out vec3 normal;
 out vec2 uv;
@@ -47,7 +47,6 @@ constexpr auto model_fragment_shader = R"(
 #version 330 core
 in vec3 normal;
 in vec2 uv;
-in float weight_sum;
 
 out vec4 fragment_color;
 
