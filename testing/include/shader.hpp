@@ -109,11 +109,14 @@ public:
     void set_bool(char const* const name, bool const value) {
         glUniform1i(glGetUniformLocation(id_, name), static_cast<GLint>(value));
     }
-    void set_int(char const* const name, int const value) {
-        glUniform1i(glGetUniformLocation(id_, name), static_cast<GLint>(value));
+    void set_int(char const* const name, GLint const value) {
+        glUniform1i(glGetUniformLocation(id_, name), value);
     }
-    void set_float(char const* const name, float const value) {
-        glUniform1f(glGetUniformLocation(id_, name), static_cast<GLfloat>(value));
+    void set_uint(char const* const name, GLuint const value) {
+        glUniform1ui(glGetUniformLocation(id_, name), value);
+    }
+    void set_float(char const* const name, GLfloat const value) {
+        glUniform1f(glGetUniformLocation(id_, name), value);
     }
 
     void set_mat4(char const* const name, glm::mat4 const matrix) {
