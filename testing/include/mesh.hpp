@@ -99,7 +99,6 @@ public:
 
         glBindVertexArray(vao_);
         glDrawElements(GL_TRIANGLES, index_count_, GL_UNSIGNED_INT, nullptr);
-        glBindVertexArray(0);
     }
 };
 

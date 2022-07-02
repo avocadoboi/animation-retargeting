@@ -1,5 +1,6 @@
 
 add_executable(testing 
+    include/animated_character.hpp
     include/animation.hpp
     include/app.hpp
     include/fbx.hpp

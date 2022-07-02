@@ -18,7 +18,6 @@ private:
         auto settings = fbx::create<FbxIOSettings>(manager, IOSROOT);
         settings->SetBoolProp(IMP_FBX_AUDIO, false);
         settings->SetBoolProp(IMP_FBX_BINORMAL, false);
-        settings->SetBoolProp(IMP_FBX_CHARACTER, false);
         settings->SetBoolProp(IMP_FBX_CONSTRAINT, false);
         settings->SetBoolProp(IMP_FBX_EXTRACT_EMBEDDED_DATA, false);
         settings->SetBoolProp(IMP_FBX_MATERIAL, false);
@@ -41,7 +40,7 @@ private:
 		{
 			if (attribute->GetAttributeType() == FbxNodeAttribute::eSkeleton)
 			{
-                if (auto* const bone = skeleton_->bone_by_name(node->GetNameOnly())) 
+                if (auto* const bone = skeleton_->bone_by_name(util::trimmed_bone_name(node).c_str())) 
                 {
                     bone->scale_track = AnimationTrack<glm::vec3>{animation_layer, node->LclScaling};
                     bone->rotation_track = AnimationTrack<glm::quat>{animation_layer, node->LclRotation};
@@ -105,12 +104,12 @@ public:
 
         for (auto& bone : skeleton_->bones())
         {
-            auto const local_scale = bone.scale_track.evaluate(time, bone.default_scale);
-            auto const local_rotation = bone.rotation_track.evaluate(time, bone.default_rotation);
-            auto const local_translation = bone.translation_track.evaluate(time, bone.default_translation);
-            // auto const local_scale = bone.default_scale;
-            // auto const local_rotation = bone.default_rotation;
-            // auto const local_translation = bone.default_translation;
+            // auto const local_scale = bone.scale_track.evaluate(time, bone.default_scale);
+            // auto const local_rotation = bone.rotation_track.evaluate(time, bone.default_rotation);
+            // auto const local_translation = bone.translation_track.evaluate(time, bone.default_translation);
+            auto const local_scale = bone.default_scale;
+            auto const local_rotation = bone.default_rotation;
+            auto const local_translation = bone.default_translation;
             
             auto const local_transform = bone.calculate_local_transform(local_scale, local_rotation, local_translation);
             

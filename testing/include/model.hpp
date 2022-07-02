@@ -25,8 +25,8 @@ private:
         {
             auto const* const cluster = skin->GetCluster(cluster_index);
 
-            auto const name = cluster->GetLink()->GetNameOnly();
-            auto const bone_id = skeleton_.bone_id_by_name(name);
+            auto const name = util::trimmed_bone_name(cluster->GetLink());
+            auto const bone_id = skeleton_.bone_id_by_name(name.c_str());
 
             auto const control_point_count = cluster->GetControlPointIndicesCount();
             auto const* const control_point_indices = cluster->GetControlPointIndices();
@@ -110,7 +110,6 @@ private:
         settings->SetBoolProp(IMP_FBX_ANIMATION, false);
         settings->SetBoolProp(IMP_FBX_AUDIO, false);
         settings->SetBoolProp(IMP_FBX_BINORMAL, false);
-        settings->SetBoolProp(IMP_FBX_CHARACTER, false);
         settings->SetBoolProp(IMP_FBX_CONSTRAINT, false);
         settings->SetBoolProp(IMP_FBX_EXTRACT_EMBEDDED_DATA, false);
         settings->SetBoolProp(IMP_FBX_MATERIAL, false);

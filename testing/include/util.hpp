@@ -42,6 +42,11 @@ inline glm::mat4 euler_angles_to_mat4_xyz(glm::vec3 const euler) {
     return glm::eulerAngleXYZ(euler.x, euler.y, euler.z);
 }
 
+inline std::string trimmed_bone_name(FbxNode const* const bone_node) {
+    auto const name = bone_node->GetNameOnly();
+    return std::string{name.Mid(name.Find(':') + 1)};
+}
+
 // glm::quat euler_angles_to_quat(glm::vec3 const angles, FbxEuler::EOrder const order) 
 // {
 //     switch (order) {

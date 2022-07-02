@@ -119,7 +119,10 @@ public:
         glUniform1f(glGetUniformLocation(id_, name), value);
     }
 
-    void set_mat4(char const* const name, glm::mat4 const matrix) {
+    void set_vec4(char const* const name, glm::vec4 vector) {
+        glUniform4f(glGetUniformLocation(id_, name), vector.x, vector.y, vector.z, vector.w);
+    }
+    void set_mat4(char const* const name, glm::mat4 const& matrix) {
         glUniformMatrix4fv(glGetUniformLocation(id_, name), 1, GL_FALSE, &matrix[0][0]);
     }
 };

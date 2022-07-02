@@ -166,7 +166,7 @@ private:
     {
         auto bone = Bone{};
         bone.parent = parent;
-        bone.name = bone_node->GetNameOnly();
+        bone.name = util::trimmed_bone_name(bone_node);
         bone.id = static_cast<Bone::Id>(bones_.size());
 
         bone.default_scale = util::fbx_to_glm(bone_node->LclScaling.Get());
@@ -355,11 +355,15 @@ public:
         set_vertex_attributes_();
     }
     
-    void draw() {
+    void draw_bones() {
         glBindVertexArray(vao_);
         glLineWidth(1.f);
         glDrawElements(GL_LINES, static_cast<GLsizei>(indices_.size()), GL_UNSIGNED_INT, nullptr);
-        glBindVertexArray(0);
+    }
+    void draw_joints() {
+        glBindVertexArray(vao_);
+        glPointSize(3.f);
+        glDrawElements(GL_POINTS, static_cast<GLsizei>(indices_.size()), GL_UNSIGNED_INT, nullptr);
     }
 };
 

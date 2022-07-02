@@ -6,7 +6,7 @@ set(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake/)
 #---------------------------------------------------
 # Library target.
 
-add_library(animation_retargeting INTERFACE)
+add_library(animation_retargeting INTERFACE include/animation_retargeting.hpp)
 
 target_include_directories(animation_retargeting INTERFACE include/)
 
