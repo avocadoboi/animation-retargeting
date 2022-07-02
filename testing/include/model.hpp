@@ -12,157 +12,170 @@ namespace testing {
 
 class Model {
 private:
-    std::vector<Mesh> meshes_;
-    Texture texture_;
-    Skeleton skeleton_;
+	std::vector<Mesh> meshes_;
+	Texture texture_;
+	Skeleton skeleton_;
 
-    void connect_bones_to_vertices_(FbxMesh const* const mesh, std::vector<Vertex>& vertices)
-    {
-        auto const* const skin = static_cast<FbxSkin const*>(mesh->GetDeformer(0, FbxDeformer::eSkin));
+	void connect_bones_to_vertices_(FbxMesh const* const mesh, std::vector<Vertex>& vertices)
+	{
+		auto const* const skin = static_cast<FbxSkin const*>(mesh->GetDeformer(0, FbxDeformer::eSkin));
 
-        auto const cluster_count = skin->GetClusterCount();
-        for (auto cluster_index = int{}; cluster_index < cluster_count; ++cluster_index)
-        {
-            auto const* const cluster = skin->GetCluster(cluster_index);
+		auto const cluster_count = skin->GetClusterCount();
+		for (auto cluster_index = int{}; cluster_index < cluster_count; ++cluster_index)
+		{
+			auto const* const cluster = skin->GetCluster(cluster_index);
 
-            auto const name = util::trimmed_bone_name(cluster->GetLink());
-            auto const bone_id = skeleton_.bone_id_by_name(name.c_str());
+			auto const name = util::trimmed_bone_name(cluster->GetLink());
+			auto const bone_id = skeleton_.bone_id_by_name(name.c_str());
 
-            auto const control_point_count = cluster->GetControlPointIndicesCount();
-            auto const* const control_point_indices = cluster->GetControlPointIndices();
-            auto const* const control_point_weights = cluster->GetControlPointWeights();
+			auto* const bone = skeleton_.bone_by_id(bone_id);
 
-            for (auto j = int{}; j < control_point_count; ++j)
-            {
-                vertices[control_point_indices[j]].add_bone(bone_id, static_cast<float>(control_point_weights[j]));
-            }
-        }
-    }
+			FbxAMatrix bind_matrix;
+			cluster->GetTransformLinkMatrix(bind_matrix);
 
-    void load_mesh_(FbxMesh const* const mesh)
-    {
-        auto const transform = util::fbx_to_glm(mesh->GetNode()->EvaluateGlobalTransform());
-        
-        auto const* const vertices_source = mesh->GetControlPoints();
+			auto const global_bind = util::fbx_to_glm(bind_matrix);
+			bone->inverse_bind_transform = glm::inverse(global_bind);
 
-        auto const* const normal_layer = mesh->GetElementNormal();
-        auto const* const uv_layer = mesh->GetElementUV();
-        
-        auto vertices = std::vector<Vertex>(mesh->GetControlPointsCount());
+			// auto const local_bind = bone->parent ? bone->parent.inverse_bind_transform * 
+			// bone->default_scale = util::fbx_to_glm(bind_matrix.GetS());
+			// bone->default_rotation = glm::quat{glm::radians(util::fbx_to_glm(bind_matrix.GetR()))};
+			// bone->default_translation = util::fbx_to_glm(bind_matrix.GetT());
 
-        for (auto i = std::size_t{}; i < vertices.size(); ++i)
-        {
-            vertices[i].position = transform*glm::vec4{fbx::to_glm_vec(vertices_source[i]), 1.f};
+			auto const control_point_count = cluster->GetControlPointIndicesCount();
+			auto const* const control_point_indices = cluster->GetControlPointIndices();
+			auto const* const control_point_weights = cluster->GetControlPointWeights();
 
-            if (normal_layer->GetMappingMode() == FbxLayerElement::EMappingMode::eByControlPoint)
-            {
-                vertices[i].normal = fbx::layer_element_at(normal_layer, static_cast<int>(i));
-            }
-            
-            if (uv_layer->GetMappingMode() == FbxLayerElement::EMappingMode::eByControlPoint)
-            {
-                vertices[i].texture_coordinates = fbx::layer_element_at(uv_layer, static_cast<int>(i));
-            }
-        }
+			for (auto j = int{}; j < control_point_count; ++j)
+			{
+				vertices[control_point_indices[j]].add_bone(bone_id, static_cast<float>(control_point_weights[j]));
+			}
+		}
+	}
 
-        auto const* const indices_source = mesh->GetPolygonVertices();
-        auto indices = std::vector<GLuint>(mesh->GetPolygonVertexCount());
+	void load_mesh_(FbxMesh const* const mesh)
+	{
+		auto const transform = util::fbx_to_glm(mesh->GetNode()->EvaluateGlobalTransform());
+		
+		auto const* const vertices_source = mesh->GetControlPoints();
 
-        for (auto i = std::size_t{}; i < indices.size(); ++i)
-        {
-            indices[i] = static_cast<GLuint>(indices_source[i]);
+		auto const* const normal_layer = mesh->GetElementNormal();
+		auto const* const uv_layer = mesh->GetElementUV();
+		
+		auto vertices = std::vector<Vertex>(mesh->GetControlPointsCount());
 
-            if (normal_layer->GetMappingMode() == FbxLayerElement::EMappingMode::eByPolygonVertex)
-            {
-                vertices[indices[i]].normal = fbx::layer_element_at(normal_layer, static_cast<int>(i));
-            }
-            
-            if (uv_layer->GetMappingMode() == FbxLayerElement::EMappingMode::eByPolygonVertex)
-            {
-                vertices[indices[i]].texture_coordinates = fbx::layer_element_at(uv_layer, static_cast<int>(i));
-            }
-        }
+		for (auto i = std::size_t{}; i < vertices.size(); ++i)
+		{
+			vertices[i].position = transform*glm::vec4{fbx::to_glm_vec(vertices_source[i]), 1.f};
 
-        connect_bones_to_vertices_(mesh, vertices);
-        
-        meshes_.emplace_back(vertices, indices, texture_.id());
-    }
+			if (normal_layer->GetMappingMode() == FbxLayerElement::EMappingMode::eByControlPoint)
+			{
+				vertices[i].normal = fbx::layer_element_at(normal_layer, static_cast<int>(i));
+			}
+			
+			if (uv_layer->GetMappingMode() == FbxLayerElement::EMappingMode::eByControlPoint)
+			{
+				vertices[i].texture_coordinates = fbx::layer_element_at(uv_layer, static_cast<int>(i));
+			}
+		}
 
-    void process_node_(FbxNode const* const node)
-    {
-        if (auto const* const attribute = node->GetNodeAttribute())
-        {
-            if (attribute->GetAttributeType() == FbxNodeAttribute::eMesh)
-            {
-                load_mesh_(static_cast<FbxMesh const*>(attribute));
-            }
-        }
+		auto const* const indices_source = mesh->GetPolygonVertices();
+		auto indices = std::vector<GLuint>(mesh->GetPolygonVertexCount());
 
-        for (auto i = int{}; i < node->GetChildCount(); ++i)
-        {
-            process_node_(node->GetChild(i));
-        }
-    }
+		for (auto i = std::size_t{}; i < indices.size(); ++i)
+		{
+			indices[i] = static_cast<GLuint>(indices_source[i]);
 
-    static fbx::Unique<FbxIOSettings> create_import_settings_(FbxManager* const manager)
-    {
-        auto settings = fbx::create<FbxIOSettings>(manager, IOSROOT);
-        settings->SetBoolProp(IMP_FBX_ANIMATION, false);
-        settings->SetBoolProp(IMP_FBX_AUDIO, false);
-        settings->SetBoolProp(IMP_FBX_BINORMAL, false);
-        settings->SetBoolProp(IMP_FBX_CONSTRAINT, false);
-        settings->SetBoolProp(IMP_FBX_EXTRACT_EMBEDDED_DATA, false);
-        settings->SetBoolProp(IMP_FBX_MATERIAL, false);
-        settings->SetBoolProp(IMP_FBX_TANGENT, false);
-        settings->SetBoolProp(IMP_FBX_TEXTURE, false);
-        settings->SetBoolProp(IMP_FBX_VERTEXCOLOR, false);
-        return settings;
-    }
+			if (normal_layer->GetMappingMode() == FbxLayerElement::EMappingMode::eByPolygonVertex)
+			{
+				vertices[indices[i]].normal = fbx::layer_element_at(normal_layer, static_cast<int>(i));
+			}
+			
+			if (uv_layer->GetMappingMode() == FbxLayerElement::EMappingMode::eByPolygonVertex)
+			{
+				vertices[indices[i]].texture_coordinates = fbx::layer_element_at(uv_layer, static_cast<int>(i));
+			}
+		}
+
+		connect_bones_to_vertices_(mesh, vertices);
+		
+		meshes_.emplace_back(vertices, indices, texture_.id());
+	}
+
+	void process_node_(FbxNode const* const node)
+	{
+		if (auto const* const attribute = node->GetNodeAttribute())
+		{
+			if (attribute->GetAttributeType() == FbxNodeAttribute::eMesh)
+			{
+				load_mesh_(static_cast<FbxMesh const*>(attribute));
+			}
+		}
+
+		for (auto i = int{}; i < node->GetChildCount(); ++i)
+		{
+			process_node_(node->GetChild(i));
+		}
+	}
+
+	static fbx::Unique<FbxIOSettings> create_import_settings_(FbxManager* const manager)
+	{
+		auto settings = fbx::create<FbxIOSettings>(manager, IOSROOT);
+		settings->SetBoolProp(IMP_FBX_ANIMATION, false);
+		settings->SetBoolProp(IMP_FBX_AUDIO, false);
+		settings->SetBoolProp(IMP_FBX_BINORMAL, false);
+		settings->SetBoolProp(IMP_FBX_CONSTRAINT, false);
+		settings->SetBoolProp(IMP_FBX_EXTRACT_EMBEDDED_DATA, false);
+		settings->SetBoolProp(IMP_FBX_MATERIAL, false);
+		settings->SetBoolProp(IMP_FBX_TANGENT, false);
+		settings->SetBoolProp(IMP_FBX_TEXTURE, false);
+		settings->SetBoolProp(IMP_FBX_VERTEXCOLOR, false);
+		return settings;
+	}
 
 public:
-    Model() = default;
+	Model() = default;
 
-    Model(char const* const fbx_path, Texture texture) :
-        texture_{std::move(texture)}
-    {
-        auto manager = fbx::create<FbxManager>();
-        
-        auto settings = create_import_settings_(manager.get());
-        manager->SetIOSettings(settings.get());
-        
-        auto scene = fbx::import_scene(manager.get(), fbx_path);
+	Model(char const* const fbx_path, Texture texture) :
+		texture_{std::move(texture)}
+	{
+		auto manager = fbx::create<FbxManager>();
+		
+		auto settings = create_import_settings_(manager.get());
+		manager->SetIOSettings(settings.get());
+		
+		auto scene = fbx::import_scene(manager.get(), fbx_path);
 
-        FbxAxisSystem::OpenGL.DeepConvertScene(scene.get());
+		FbxAxisSystem::OpenGL.DeepConvertScene(scene.get());
 
-        FbxGeometryConverter{manager.get()}.Triangulate(scene.get(), true);
+		FbxGeometryConverter{manager.get()}.Triangulate(scene.get(), true);
 
-        auto* const root_node = scene->GetRootNode();
+		auto* const root_node = scene->GetRootNode();
 
-        if (!root_node) {
-            throw std::runtime_error{"An FBX scene did not contain a root node."};
-        }
+		if (!root_node) {
+			throw std::runtime_error{"An FBX scene did not contain a root node."};
+		}
 
-        skeleton_.load_from_fbx_node(root_node);
+		skeleton_.load_from_fbx_node(root_node);
 
-        for (auto i = int{}; i < root_node->GetChildCount(); ++i)
-        {
-            process_node_(root_node->GetChild(i));
-        }
-    }
+		for (auto i = int{}; i < root_node->GetChildCount(); ++i)
+		{
+			process_node_(root_node->GetChild(i));
+		}
+	}
 
-    Skeleton const& skeleton() const {
-        return skeleton_;
-    }
-    
-    Skeleton& skeleton() {
-        return skeleton_;
-    }
-    
-    void draw() const {
-        for (auto const& mesh : meshes_) {
-            mesh.draw();
-        }
-    }
+	Skeleton const& skeleton() const {
+		return skeleton_;
+	}
+	
+	Skeleton& skeleton() {
+		return skeleton_;
+	}
+	
+	void draw() const {
+		for (auto const& mesh : meshes_) {
+			mesh.draw();
+		}
+	}
 };
 
 } // namespace testing

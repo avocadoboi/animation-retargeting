@@ -27,16 +27,16 @@ uniform mat4 bone_matrices[max_bone_count];
 
 void main()
 {
-    uv = in_uv;
-    normal = in_normal;
+	uv = in_uv;
+	normal = in_normal;
 
-    mat4 bone_transform = bone_matrices[bone_ids[0]] * bone_weights[0];
-    bone_transform += bone_matrices[bone_ids[1]] * bone_weights[1];
-    bone_transform += bone_matrices[bone_ids[2]] * bone_weights[2];
-    bone_transform += bone_matrices[bone_ids[3]] * bone_weights[3];
+	mat4 bone_transform = bone_matrices[bone_ids[0]] * bone_weights[0];
+	bone_transform += bone_matrices[bone_ids[1]] * bone_weights[1];
+	bone_transform += bone_matrices[bone_ids[2]] * bone_weights[2];
+	bone_transform += bone_matrices[bone_ids[3]] * bone_weights[3];
 
-    gl_Position = projection * view * model * bone_transform * vec4(in_pos, 1.f);
-    //normal = normalize(total_normal);
+	gl_Position = projection * view * model * bone_transform * vec4(in_pos, 1.f);
+	//normal = normalize(total_normal);
 }
 )";
 
@@ -51,7 +51,7 @@ uniform sampler2D diffuse_texture;
 
 void main()
 {
-    fragment_color = texture(diffuse_texture, uv)*mix(0.6, 1, normal.y*0.5 + 0.5);
+	fragment_color = texture(diffuse_texture, uv)*mix(0.6, 1, normal.y*0.5 + 0.5);
 }
 )";
 
@@ -68,7 +68,7 @@ const uint max_bone_count = 128u;
 uniform mat4 bone_matrices[max_bone_count];
 
 void main() {
-    gl_Position = projection * view * model * bone_matrices[in_bone_id] * vec4(in_pos, 1.f);
+	gl_Position = projection * view * model * bone_matrices[in_bone_id] * vec4(in_pos, 1.f);
 }
 )";
 
@@ -80,84 +80,88 @@ out vec4 fragment_color;
 uniform vec4 color;
 
 void main() {
-    fragment_color = color;
+	fragment_color = color;
 }
 )";
 
 inline std::string bone_matrix_uniform_name(Bone::Id const id)
 {
-    return "bone_matrices[" + std::to_string(id) + "]";
-    // return fmt::format("bone_matrices[{}]", id);
+	return "bone_matrices[" + std::to_string(id) + "]";
+	// return fmt::format("bone_matrices[{}]", id);
 }
 
 class AnimatedCharacter {
 private:
 
-    Model model_;
-    ShaderProgram model_shader_{model_vertex_shader, model_fragment_shader};
-    Animation animation_;
+	Model model_;
+	ShaderProgram model_shader_{model_vertex_shader, model_fragment_shader};
+	Animation animation_;
 
-    SkeletonMesh skeleton_mesh_{model_.skeleton()};
-    ShaderProgram skeleton_shader_{skeleton_vertex_shader, skeleton_fragment_shader};
+	SkeletonMesh skeleton_mesh_{model_.skeleton()};
+	ShaderProgram skeleton_shader_{skeleton_vertex_shader, skeleton_fragment_shader};
 
 public:
-    AnimatedCharacter(Model model, char const* const animation_path) :
-        model_{std::move(model)}, animation_{animation_path, &model_.skeleton()}
-    {
-        model_shader_.use();
-        model_shader_.set_mat4("view", glm::mat4{1.f});
-        model_shader_.set_mat4("model", glm::mat4{1.f});
-        model_shader_.set_int("diffuse_texture", 0);
+	AnimatedCharacter(Model model, char const* const animation_path) :
+		model_{std::move(model)}, animation_{animation_path, &model_.skeleton()}
+	{
+		model_shader_.use();
+		model_shader_.set_mat4("view", glm::mat4{1.f});
+		model_shader_.set_mat4("model", glm::mat4{1.f});
+		model_shader_.set_int("diffuse_texture", 0);
 
-        skeleton_shader_.use();
-        skeleton_shader_.set_mat4("view", glm::mat4{1.f});
-        skeleton_shader_.set_mat4("model", glm::mat4{1.f});
-    }
+		skeleton_shader_.use();
+		skeleton_shader_.set_mat4("view", glm::mat4{1.f});
+		skeleton_shader_.set_mat4("model", glm::mat4{1.f});
+	}
 
-    void position_scale(glm::vec3 const pos, float const scale) {
-        auto const model_transform = glm::translate(glm::mat4{1.f}, pos) * glm::scale(glm::mat4{1.f}, glm::vec3{scale});
-        model_shader_.use();
-        model_shader_.set_mat4("model", model_transform);
+	void position_scale(glm::vec3 const pos, float const scale) {
+		auto const model_transform = glm::translate(glm::mat4{1.f}, pos) * glm::scale(glm::mat4{1.f}, glm::vec3{scale});
+		model_shader_.use();
+		model_shader_.set_mat4("model", model_transform);
 
-        skeleton_shader_.use();
-        skeleton_shader_.set_mat4("model", model_transform);
-    }
+		skeleton_shader_.use();
+		skeleton_shader_.set_mat4("model", model_transform);
+	}
 
-    void projection_matrix(glm::mat4 const& projection) {
-        model_shader_.use();
-        model_shader_.set_mat4("projection", projection);
+	void projection_matrix(glm::mat4 const& projection) {
+		model_shader_.use();
+		model_shader_.set_mat4("projection", projection);
 
-        skeleton_shader_.use();
-        skeleton_shader_.set_mat4("projection", projection);
-    }
+		skeleton_shader_.use();
+		skeleton_shader_.set_mat4("projection", projection);
+	}
 
-    void update_animation() {
-        animation_.update_bone_matrices();
-    }
+	void restart_animation() {
+		animation_.restart();
+	}
 
-    void draw_model(glm::mat4 const& view_matrix) {
-        model_shader_.use();
-        model_shader_.set_mat4("view", view_matrix);
-        for (auto const& bone : model_.skeleton().bones()) {
-            model_shader_.set_mat4(bone_matrix_uniform_name(bone.id).c_str(), bone.animation_transform);
-        }
-        model_.draw();
-    }
+	void update_animation() {
+		animation_.update_bone_matrices();
+	}
 
-    void draw_skeleton(glm::mat4 const& view_matrix) {
-        skeleton_shader_.use();
-        skeleton_shader_.set_mat4("view", view_matrix);
-        for (auto const& bone : model_.skeleton().bones()) {
-            skeleton_shader_.set_mat4(bone_matrix_uniform_name(bone.id).c_str(), bone.animation_transform);
-        }
-        skeleton_shader_.set_vec4("color", glm::vec4{0.f, 1.f, 0.f, 0.5f});
-        skeleton_mesh_.draw_bones();
-        skeleton_shader_.set_vec4("color", glm::vec4{1.f, 0.f, 0.f, 0.5f});
-        skeleton_mesh_.draw_joints();
-    }
-    
+	void draw_model(glm::mat4 const& view_matrix) {
+		model_shader_.use();
+		model_shader_.set_mat4("view", view_matrix);
+		for (auto const& bone : model_.skeleton().bones()) {
+			model_shader_.set_mat4(bone_matrix_uniform_name(bone.id).c_str(), bone.animation_transform);
+		}
+		model_.draw();
+	}
+
+	void draw_skeleton(glm::mat4 const& view_matrix) {
+		skeleton_shader_.use();
+		skeleton_shader_.set_mat4("view", view_matrix);
+		for (auto const& bone : model_.skeleton().bones()) {
+			skeleton_shader_.set_mat4(bone_matrix_uniform_name(bone.id).c_str(), bone.animation_transform);
+		}
+		skeleton_shader_.set_vec4("color", glm::vec4{0.f, 1.f, 0.f, 0.5f});
+		skeleton_mesh_.draw_bones();
+		skeleton_shader_.set_vec4("color", glm::vec4{1.f, 0.f, 0.f, 0.5f});
+		skeleton_mesh_.draw_joints();
+	}
+	
 };
-    
+	
 
 } // namespace testing
 
