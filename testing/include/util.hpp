@@ -48,6 +48,14 @@ inline std::string trimmed_bone_name(FbxNode const* const bone_node) {
 	return std::string{name.Mid(name.Find(':') + 1)};
 }
 
+inline bool string_ends_with(std::string const& string, std::string const& end) {
+	return string.size() >= end.size() && !string.compare(string.size() - end.size(), end.size(), end);
+}
+
+inline bool is_end_bone(std::string const& bone_name) {
+	return util::string_ends_with(bone_name, "_end") || util::string_ends_with(bone_name, "_End");
+}
+
 // glm::quat euler_angles_to_quat(glm::vec3 const angles, FbxEuler::EOrder const order) 
 // {
 //     switch (order) {
@@ -65,7 +73,7 @@ private:
 public:
 	static constexpr auto capacity = capacity_;
 
-	constexpr std::size_t size() const {
+	std::size_t size() const {
 		return size_;
 	}
 
@@ -110,6 +118,55 @@ public:
 		return array_.begin() + size_;
 	}
 };
+
+template<typename Index_>
+class Indices {
+private:
+	Index_ size_;
+	
+public:
+	constexpr explicit Indices(Index_ const size) :
+		size_{size}
+	{}
+	template<typename Container_>
+	constexpr explicit Indices(Container_ const& container) :
+		size_{container.size()}
+	{}
+
+	struct Iterator {
+		Index_ index;
+
+		constexpr Iterator& operator++() {
+			++index;
+			return *this;
+		}
+		constexpr bool operator==(Iterator const other) const {
+			return index == other.index;
+		}
+		constexpr bool operator!=(Iterator const other) const {
+			return index != other.index;
+		}
+		constexpr Index_ operator*() const {
+			return index;
+		}
+	};
+
+	constexpr Iterator begin() const {
+		return Iterator{};
+	}
+	constexpr Iterator end() const {
+		return Iterator{size_};
+	}
+};
+
+template<typename Index_, typename = std::enable_if_t<std::is_integral_v<Index_>>>
+constexpr Indices<Index_> indices(Index_ const size) {
+	return Indices<Index_>{size};
+}
+template<typename Container_, typename = std::enable_if_t<!std::is_integral_v<Container_>>>
+constexpr Indices<std::size_t> indices(Container_ const& container) {
+	return Indices<std::size_t>{container};
+}
 
 } // namespace util
 

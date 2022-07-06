@@ -31,7 +31,7 @@ private:
 
 	using Clock_ = std::chrono::steady_clock;
 
-	Skeleton* skeleton_;
+	Skeleton& skeleton_;
 	std::chrono::time_point<Clock_> start_time_{Clock_::now()};
 
 	void load_animation_(FbxNode* const node, FbxAnimLayer* const animation_layer)
@@ -40,7 +40,7 @@ private:
 		{
 			if (attribute->GetAttributeType() == FbxNodeAttribute::eSkeleton)
 			{
-				if (auto* const bone = skeleton_->bone_by_name(util::trimmed_bone_name(node).c_str())) 
+				if (auto* const bone = skeleton_.bone_by_name(util::trimmed_bone_name(node).c_str())) 
 				{
 					bone->scale_track = AnimationTrack<glm::vec3>{animation_layer, node->LclScaling};
 					bone->rotation_track = AnimationTrack<glm::quat>{animation_layer, node->LclRotation};
@@ -49,16 +49,36 @@ private:
 			}
 		}
 		
-		for (auto i = int{}; i < node->GetChildCount(); ++i)
+		for (auto const i : util::indices(node->GetChildCount()))
 		{
 			load_animation_(node->GetChild(i), animation_layer);
 		}	
 	}
 
+	void load_animations_(FbxScene const* const scene, FbxNode* const root_node) 
+	{
+		auto const stack_count = scene->GetSrcObjectCount(FbxCriteria::ObjectType(FbxAnimStack::ClassId));
+		for (auto const stack_index : util::indices(stack_count))
+		{
+			auto const* const animation_stack = static_cast<FbxAnimStack const*>(scene->GetSrcObject(FbxCriteria::ObjectType(FbxAnimStack::ClassId), stack_index));
+
+			auto const layer_count = animation_stack->GetMemberCount(FbxCriteria::ObjectType(FbxAnimLayer::ClassId));
+			for (auto const layer_index : util::indices(layer_count))
+			{
+				auto* const animation_layer = static_cast<FbxAnimLayer*>(animation_stack->GetMember(FbxCriteria::ObjectType(FbxAnimLayer::ClassId), layer_index));
+				load_animation_(root_node, animation_layer);
+			}
+		}
+	}
+
 public:
-	Animation(char const* const fbx_path, Skeleton* const skeleton) :
+	Animation(char const* const fbx_path, Skeleton& skeleton) :
 		skeleton_{skeleton}
 	{
+		if (!fbx_path || *fbx_path == char{}) {
+			return;
+		}
+		
 		auto manager = fbx::create<FbxManager>();
 		
 		auto settings = create_import_settings_(manager.get());
@@ -74,19 +94,7 @@ public:
 			throw std::runtime_error{"An FBX scene did not contain a root node."};
 		}
 
-		auto const stack_count = scene->GetSrcObjectCount(FbxCriteria::ObjectType(FbxAnimStack::ClassId));
-		for (auto stack_index = 0; stack_index < stack_count; ++stack_index)
-		{
-			auto const* const animation_stack = static_cast<FbxAnimStack const*>(scene->GetSrcObject(FbxCriteria::ObjectType(FbxAnimStack::ClassId), stack_index));
-
-			auto const layer_count = animation_stack->GetMemberCount(FbxCriteria::ObjectType(FbxAnimLayer::ClassId));
-			for (auto layer_index = 0; layer_index < layer_count; ++layer_index)
-			{
-				auto* const animation_layer = static_cast<FbxAnimLayer*>(animation_stack->GetMember(FbxCriteria::ObjectType(FbxAnimLayer::ClassId), layer_index));
-				load_animation_(root_node, animation_layer);
-			}
-		}
-		
+		load_animations_(scene.get(), root_node);		
 	}
 
 	void restart() {
@@ -98,27 +106,22 @@ public:
 		auto const time = std::chrono::duration_cast<Seconds>(Clock_::now() - start_time_)*0.5f;
 
 		// Hack, remove later
-		if (time > skeleton_->bones()[0].translation_track.duration()) {
+		if (time > skeleton_.bones()[0].translation_track.duration()) {
 			restart();
 		}
 
-		for (auto& bone : skeleton_->bones())
+		for (auto& bone : skeleton_.bones())
 		{
-			auto const local_scale = bone.scale_track.evaluate(time, bone.default_scale);
-			auto const local_rotation = bone.rotation_track.evaluate(time, bone.default_rotation);
-			auto const local_translation = bone.translation_track.evaluate(time, bone.default_translation);
-			// auto const local_scale = bone.default_scale;
-			// auto const local_rotation = bone.default_rotation;
-			// auto const local_translation = bone.default_translation;
+			auto const local_scale = bone.scale_track.evaluate(time, bone.local_bind_scale);
+			auto const local_rotation = bone.rotation_track.evaluate(time, bone.local_bind_rotation);
+			auto const local_translation = bone.translation_track.evaluate(time, bone.local_bind_translation);
+			// auto const local_scale = bone.local_bind_scale;
+			// auto const local_rotation = bone.local_bind_rotation;
+			// auto const local_translation = bone.local_bind_translation;
 			
 			auto const local_transform = bone.calculate_local_transform(local_scale, local_rotation, local_translation);
 			
-			if (bone.parent) {
-				bone.global_transform = bone.parent->global_transform * local_transform;
-			}
-			else {
-				bone.global_transform = local_transform;
-			}
+			bone.global_transform = bone.parent ? bone.parent->global_transform * local_transform : local_transform;
 
 			bone.animation_transform = bone.global_transform * bone.inverse_bind_transform;
 		}

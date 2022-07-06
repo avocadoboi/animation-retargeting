@@ -4,10 +4,13 @@
 #include "fbx.hpp"
 #include "util.hpp"
 
+#include "animation_retargeting.hpp"
+
 #include <fmt/format.h>
 #include <glad/glad.h>
 #include <glm/ext.hpp>
 #include <glm/gtx/component_wise.hpp>
+#include <glm/gtx/matrix_decompose.hpp>
 
 #include <algorithm>
 #include <array>
@@ -93,6 +96,22 @@ public:
 		}
 	}
 
+	std::vector<T> extract_values() const
+	{
+		auto values = std::vector<T>{};
+		values.reserve(keyframes_.size());
+
+		for (auto const& keyframe : keyframes_) {
+			values.push_back(keyframe.value);
+		}
+		return values;
+	}
+	void set_values(std::vector<T> const& values) {
+		for (auto const i : util::indices(keyframes_)) {
+			keyframes_[i].value = values[i];
+		}
+	}
+
 	bool is_empty() const {
 		return keyframes_.empty();
 	}
@@ -132,21 +151,33 @@ struct Bone {
 
 	Bone const* parent;
 	std::string name;
+
+	// The bone's index in the skeleton's bone array.
 	Id id;
 
+	// The bone's global bind transform and its inverse.
+	glm::mat4 bind_transform;
 	glm::mat4 inverse_bind_transform;
+
+	// The bone's current global transform in an animation.
 	glm::mat4 global_transform;
+
+	// The transform applied to bones and skin in an animation, relative to the bind pose.
+	// It is equal to inverse_bind_transform * global_transform.
 	glm::mat4 animation_transform;
 
+	// Transforms to apply between scale/rotation/translation components, to account for pivots etc.
 	glm::mat4 pre_scaling;
 	glm::mat4 pre_rotation;
 	glm::mat4 pre_translation;
 	glm::mat4 post_translation;
 
-	glm::vec3 default_scale;
-	glm::quat default_rotation;
-	glm::vec3 default_translation;
+	// These are the components of the bone's local bind transform.
+	glm::vec3 local_bind_scale;
+	glm::quat local_bind_rotation;
+	glm::vec3 local_bind_translation;
 
+	// Keyframes for the scale/rotation/translation components of the bone's local transform.
 	AnimationTrack<glm::vec3> scale_track;
 	AnimationTrack<glm::quat> rotation_track;
 	AnimationTrack<glm::vec3> translation_track;
@@ -155,66 +186,62 @@ struct Bone {
 	{
 		return post_translation * glm::translate(glm::mat4{1.f}, translation) * pre_translation * glm::mat4_cast(rotation) * pre_rotation * glm::scale(glm::mat4{1.f}, scale) * pre_scaling;
 	}
+
+	Bone() = default;
+	Bone(Bone const* parent, std::string name, Id const id, FbxNode* const bone_node) :
+		parent{parent},
+		name{std::move(name)},
+		id{id}
+	{
+		/*
+			From the FBX SDK docs:
+			World = ParentWorld * T * Roff * Rp * Rpre * R * Rpost * Rp-1 * Soff * Sp * S * Sp-1
+			Here, I put Sp-1 into bone.pre_scaling, Rpost * Rp-1 * Soff * Sp into bone.pre_rotation, and Roff * Rp * Rpre into bone.pre_translation.
+			Notice that me and the FBX SDK use different pre/post words... I think mine are correct because the right side of a matrix
+			multiplication is the transform that is applied first. T * R * S means scaling happens first, then rotation, then translation.
+		*/
+
+		auto const fbx_scaling_pivot = util::fbx_to_glm(bone_node->GetScalingPivot(FbxNode::eSourcePivot));
+		pre_scaling = glm::translate(glm::mat4{1.f}, -fbx_scaling_pivot);
+
+		auto const fbx_rotation_pivot = util::fbx_to_glm(bone_node->GetRotationPivot(FbxNode::eSourcePivot));
+		auto const fbx_post_rotation = util::euler_angles_to_mat4_xyz(glm::radians(util::fbx_to_glm(bone_node->GetPostRotation(FbxNode::eSourcePivot))));
+		pre_rotation = fbx_post_rotation * glm::translate(glm::mat4{1.f}, -fbx_rotation_pivot + util::fbx_to_glm(bone_node->GetScalingOffset(FbxNode::eSourcePivot)) + fbx_scaling_pivot);
+
+		auto const fbx_pre_rotation = util::euler_angles_to_mat4_xyz(glm::radians(util::fbx_to_glm(bone_node->GetPreRotation(FbxNode::eSourcePivot))));
+		pre_translation = glm::translate(glm::mat4{1.f}, util::fbx_to_glm(bone_node->GetRotationOffset(FbxNode::eSourcePivot)) + fbx_rotation_pivot) * fbx_pre_rotation;
+
+		// Add the parent node's global transform if this is a root bone.
+		post_translation = parent ? glm::mat4{1.f} : util::fbx_to_glm(bone_node->GetParent()->EvaluateGlobalTransform());
+
+		// bone.local_bind_scale = util::fbx_to_glm(bone_node->LclScaling.Get());
+		// bone.local_bind_rotation = glm::quat{glm::radians(util::fbx_to_glm(bone_node->LclRotation.Get()))};
+		// bone.local_bind_translation = util::fbx_to_glm(bone_node->LclTranslation.Get());
+
+        // auto const local_transform = bone.calculate_local_transform(bone.local_bind_scale, bone.local_bind_rotation, bone.local_bind_translation);
+
+		// bone.bind_transform = parent ? parent->bind_transform * local_transform : local_transform;
+	}
 };
 
 class Skeleton {
 private:
 	using Bones_ = util::StaticVector<Bone, 256>;
 	std::unique_ptr<Bones_> bones_ = std::make_unique<Bones_>();
-	glm::mat4 root_transform_;
 
 	void add_bone_(FbxNode* const bone_node, Bone const* parent)
 	{
-		auto bone = Bone{};
-		bone.parent = parent;
-		bone.name = util::trimmed_bone_name(bone_node);
-		bone.id = static_cast<Bone::Id>(bones_->size());
-
-		bone.default_scale = util::fbx_to_glm(bone_node->LclScaling.Get());
-		bone.default_rotation = glm::quat{glm::radians(util::fbx_to_glm(bone_node->LclRotation.Get()))};
-		bone.default_translation = util::fbx_to_glm(bone_node->LclTranslation.Get());
-
-		/*
-			From the FBX SDK docs:
-			World = ParentWorld * T * Roff * Rp * Rpre * R * Rpost * Rp-1 * Soff * Sp * S * Sp-1
-			Here, I put Sp-1 into bone.pre_scaling, Rpost * Rp-1 * Soff * Sp into bone.pre_rotation, and Roff * Rp * Rpre into bone.pre_translation.
-			Notice that me and the FBX SDK use different pre/post terms... I think mine are correct because the right side of a matrix
-			multiplication is the transform that is applied first. T * R * S means scaling happens first, then rotation, then translation.
-		*/
-
-		auto const scaling_pivot = util::fbx_to_glm(bone_node->GetScalingPivot(FbxNode::eSourcePivot));
-		bone.pre_scaling = glm::translate(glm::mat4{1.f}, -scaling_pivot);
-
-		auto const rotation_pivot = util::fbx_to_glm(bone_node->GetRotationPivot(FbxNode::eSourcePivot));
-		auto const post_rotation = util::euler_angles_to_mat4_xyz(glm::radians(util::fbx_to_glm(bone_node->GetPostRotation(FbxNode::eSourcePivot))));
-		bone.pre_rotation = post_rotation * glm::translate(glm::mat4{1.f}, -rotation_pivot + util::fbx_to_glm(bone_node->GetScalingOffset(FbxNode::eSourcePivot)) + scaling_pivot);
-
-		auto const pre_rotation = util::euler_angles_to_mat4_xyz(glm::radians(util::fbx_to_glm(bone_node->GetPreRotation(FbxNode::eSourcePivot))));
-		bone.pre_translation = glm::translate(glm::mat4{1.f}, util::fbx_to_glm(bone_node->GetRotationOffset(FbxNode::eSourcePivot)) + rotation_pivot) * pre_rotation;
-
-		// Add the parent node's global transform if this is a root bone.
-		if (parent) {
-			bone.post_translation = glm::mat4{1.f};
-		}
-		else {
-			bone.post_translation = util::fbx_to_glm(bone_node->GetParent()->EvaluateGlobalTransform());
+		auto const name = util::trimmed_bone_name(bone_node);
+		
+		if (util::is_end_bone(name)) {
+			return;
 		}
 
-        auto const local_inverse_transform = glm::inverse(bone.calculate_local_transform(bone.default_scale, bone.default_rotation, bone.default_translation));
-
-        if (parent) {
-            bone.inverse_bind_transform = local_inverse_transform * parent->inverse_bind_transform;
-        }
-        else {
-            bone.inverse_bind_transform = local_inverse_transform;
-        }
-
-		bones_->push_back(std::move(bone));
+		bones_->push_back(Bone{parent, name, static_cast<Bone::Id>(bones_->size()), bone_node});
 
 		parent = &bones_->back();
 
-		for (auto i = int{}; i < bone_node->GetChildCount(); ++i)
-		{
+		for (auto const i : util::indices(bone_node->GetChildCount())) {
 			add_bone_(bone_node->GetChild(i), parent);
 		}    
 	}
@@ -231,19 +258,73 @@ private:
 public:
 	void load_from_fbx_node(FbxNode* const node) 
 	{
-		if (auto const* const attribute = node->GetNodeAttribute())
-		{
-			if (attribute->GetAttributeType() == FbxNodeAttribute::eSkeleton)
-			{
+		if (auto const* const attribute = node->GetNodeAttribute()) {
+			if (attribute->GetAttributeType() == FbxNodeAttribute::eSkeleton) {
 				add_bone_(node, nullptr);
 				return;
 			}
 		}
 		
-		for (auto i = int{}; i < node->GetChildCount(); ++i)
-		{
+		for (auto const i : util::indices(node->GetChildCount())) {
 			load_from_fbx_node(node->GetChild(i));
 		}		
+	}
+
+	void calculate_local_bind_components() 
+	{
+		for (auto& bone : *bones_) {
+			bone.inverse_bind_transform = glm::inverse(bone.bind_transform);
+
+			auto const local = bone.parent ? bone.parent->inverse_bind_transform * bone.bind_transform : glm::inverse(bone.post_translation) * bone.bind_transform;
+			glm::vec3 skew;
+			glm::vec4 perspective;
+			glm::decompose(local, bone.local_bind_scale, bone.local_bind_rotation, bone.local_bind_translation, skew, perspective);
+		}
+	}
+
+	auto extract_animation() const 
+		-> animation_retargeting::Animation
+	{
+		auto animation = animation_retargeting::Animation{};
+		animation.bones.reserve(bones_->size());
+		
+		for (auto const& bone : *bones_) {
+			animation.bones.push_back(animation_retargeting::AnimatedBone{
+				bone.scale_track.extract_values(),
+				bone.rotation_track.extract_values(),
+				bone.translation_track.extract_values()
+			});
+		}
+		return animation;
+	}
+	auto extract_pose() const 
+		-> animation_retargeting::Pose
+	{
+		auto pose = animation_retargeting::Pose{};
+		pose.bones.reserve(bones_->size());
+		
+		for (auto const& bone : *bones_) {
+			pose.bones.push_back(animation_retargeting::PoseBone{
+				bone.name,
+				bone.local_bind_scale,
+				bone.local_bind_rotation,
+				bone.local_bind_translation,
+			});
+		}
+		
+		return pose;
+	}
+
+	void set_animation_values(animation_retargeting::Animation const& animation) 
+	{
+		for (auto const i : util::indices(animation.bones))
+		{
+			auto& bone = (*bones_)[i];
+			auto const& animation_bone = animation.bones[i];
+			bone.scale_track.set_values(animation_bone.scales);
+			bone.rotation_track.set_values(animation_bone.rotations);
+			bone.translation_track.set_values(animation_bone.translations);
+		}
 	}
 
 	Bone const* bone_by_name(char const* const name) const
@@ -312,7 +393,7 @@ private:
 				indices_.push_back(bone.id);
 			}
 
-			vertices_.push_back(SkeletonVertex{glm::inverse(bone.inverse_bind_transform) * glm::vec4{0.f, 0.f, 0.f, 1.f}, bone.id});
+			vertices_.push_back(SkeletonVertex{bone.bind_transform * glm::vec4{0.f, 0.f, 0.f, 1.f}, bone.id});
 		}
 	}
 
@@ -350,12 +431,12 @@ public:
 		set_vertex_attributes_();
 	}
 	
-	void draw_bones() {
+	void draw_bones() const {
 		glBindVertexArray(vao_);
 		glLineWidth(1.f);
 		glDrawElements(GL_LINES, static_cast<GLsizei>(indices_.size()), GL_UNSIGNED_INT, nullptr);
 	}
-	void draw_joints() {
+	void draw_joints() const {
 		glBindVertexArray(vao_);
 		glPointSize(3.f);
 		glDrawElements(GL_POINTS, static_cast<GLsizei>(indices_.size()), GL_UNSIGNED_INT, nullptr);

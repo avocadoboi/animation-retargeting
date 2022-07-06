@@ -10,6 +10,10 @@ private:
 	static constexpr auto window_size = glm::vec<2, int>{700, 600};
 	static constexpr auto window_title = "Animation retargeting";
 
+	static Scene* scene_from_window_(GLFWwindow* const window) {
+		return static_cast<Scene*>(glfwGetWindowUserPointer(window));
+	}
+
 	glfw::Instance instance_;
 
 	GLFWwindow* window_;
@@ -29,6 +33,7 @@ private:
 
 		glfwSwapInterval(1);
 	}
+
 
 public:
 	App()
@@ -51,9 +56,13 @@ public:
 
 		glfwSetFramebufferSizeCallback(window_, [](GLFWwindow* const window, int const width, int const height) {
 			glViewport(0, 0, width, height);
-			static_cast<Scene*>(glfwGetWindowUserPointer(window))->handle_resize({width, height});
+			scene_from_window_(window)->handle_resize({width, height});
 		});
-
+		glfwSetKeyCallback(window_, [](GLFWwindow* const window, int const key, int const /*scancode*/, int const action, int const /*mods*/) {
+			if (action == GLFW_PRESS) {
+				scene_from_window_(window)->handle_key_press(key);
+			}
+		});
 	}
 	~App() {
 		glfwDestroyWindow(window_);

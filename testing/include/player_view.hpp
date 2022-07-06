@@ -18,7 +18,7 @@ private:
 	glm::vec2 rotation_{};
 	glm::vec3 position_{};
 
-	glm::vec2 velocity_{};
+	glm::vec3 velocity_{};
 
 	void update_view_() {
 		view_matrix_ = glm::mat4{1.f};
@@ -41,21 +41,26 @@ public:
 		}
 
 		if (input.is_key_down(GLFW_KEY_W)) {
-			velocity_ += glm::vec2{glm::sin(rotation_.x), -glm::cos(rotation_.x)}*movement_acceleration;
+			velocity_ += glm::vec3{glm::sin(rotation_.x), 0.f, -glm::cos(rotation_.x)}*movement_acceleration;
 		}
 		if (input.is_key_down(GLFW_KEY_S)) {
-			velocity_ -= glm::vec2{glm::sin(rotation_.x), -glm::cos(rotation_.x)}*movement_acceleration;
+			velocity_ -= glm::vec3{glm::sin(rotation_.x), 0.f, -glm::cos(rotation_.x)}*movement_acceleration;
 		}
 		if (input.is_key_down(GLFW_KEY_A)) {
-			velocity_ -= glm::vec2{glm::cos(rotation_.x), glm::sin(rotation_.x)}*movement_acceleration;
+			velocity_ -= glm::vec3{glm::cos(rotation_.x), 0.f, glm::sin(rotation_.x)}*movement_acceleration;
 		}
 		if (input.is_key_down(GLFW_KEY_D)) {
-			velocity_ += glm::vec2{glm::cos(rotation_.x), glm::sin(rotation_.x)}*movement_acceleration;
+			velocity_ += glm::vec3{glm::cos(rotation_.x), 0.f, glm::sin(rotation_.x)}*movement_acceleration;
+		}
+		if (input.is_key_down(GLFW_KEY_Q)) {
+			velocity_ -= glm::vec3{0.f, movement_acceleration, 0.f};
+		}
+		if (input.is_key_down(GLFW_KEY_E)) {
+			velocity_ += glm::vec3{0.f, movement_acceleration, 0.f};
 		}
 		velocity_ *= 1 - movement_friction;
 
-		position_.x += velocity_.x;
-		position_.z += velocity_.y;
+		position_ += velocity_;
 
 		update_view_();
 	}

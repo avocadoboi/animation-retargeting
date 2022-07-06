@@ -3,6 +3,8 @@
 #ifndef ANIMATION_RETARGETING_TESTING_FBX_HPP
 #define ANIMATION_RETARGETING_TESTING_FBX_HPP
 
+#include "util.hpp"
+
 #include <fbxsdk.h>
 #include <glm/glm.hpp>
 
@@ -109,7 +111,7 @@ inline FbxNode const* find_root_bone(FbxNode const* const root_node)
 		}
 	}
 	
-	for (auto i = int{}; i < root_node->GetChildCount(); ++i)
+	for (auto const i : util::indices(root_node->GetChildCount()))
 	{
 		if (auto const* const node = find_root_bone(root_node->GetChild(i)))
 		{
