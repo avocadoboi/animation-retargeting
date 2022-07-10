@@ -306,6 +306,7 @@ public:
 		for (auto const& bone : *bones_) {
 			pose.bones.push_back(animation_retargeting::PoseBone{
 				bone.name,
+				bone.parent ? bone.parent->id : animation_retargeting::PoseBone::no_parent,
 				bone.local_bind_scale,
 				bone.local_bind_rotation,
 				bone.local_bind_translation,
@@ -324,6 +325,22 @@ public:
 			bone.scale_track.set_values(animation_bone.scales);
 			bone.rotation_track.set_values(animation_bone.rotations);
 			bone.translation_track.set_values(animation_bone.translations);
+		}
+	}
+
+	void set_bind_pose(animation_retargeting::Pose const& pose)
+	{
+		for (auto const i : util::indices(pose.bones))
+		{
+			auto& bone = (*bones_)[i];
+			bone.local_bind_scale = pose.bones[i].scale;
+			bone.local_bind_rotation = pose.bones[i].rotation;
+			bone.local_bind_translation = pose.bones[i].translation;
+			
+			auto const local = bone.calculate_local_transform(bone.local_bind_scale, bone.local_bind_rotation, bone.local_bind_translation);
+
+			bone.bind_transform = bone.parent ? bone.parent->bind_transform * local : local;
+			bone.inverse_bind_transform = glm::inverse(bone.bind_transform);
 		}
 	}
 

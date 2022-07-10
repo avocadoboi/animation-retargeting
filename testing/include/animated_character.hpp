@@ -118,6 +118,10 @@ public:
 		skeleton_shader_.set_mat4("model", glm::mat4{1.f});
 	}
 
+	void update_skeleton_mesh() {
+		skeleton_mesh_ = SkeletonMesh{model_.skeleton()};
+	}
+
 	Model const& model() const {
 		return model_;
 	}

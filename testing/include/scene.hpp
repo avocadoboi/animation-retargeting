@@ -10,11 +10,11 @@ class Scene {
 private:
 	static constexpr auto player_position = glm::vec3{0.f, 8.f, 0.f};
 
-	static constexpr auto animation_path = "testing/data/animations/walking.fbx";
+	static constexpr auto animation_path = "testing/data/models/vampire.fbx";
 
 	std::array<AnimatedCharacter, 5> characters_{
-		AnimatedCharacter{Model{"testing/data/models/archer.fbx", Texture{"testing/data/models/archer.png"}}, animation_path},
 		AnimatedCharacter{Model{"testing/data/models/vampire.fbx", Texture{"testing/data/models/vampire.png"}}, animation_path},
+		AnimatedCharacter{Model{"testing/data/models/archer.fbx", Texture{"testing/data/models/archer.png"}}, animation_path},
 		AnimatedCharacter{Model{"testing/data/models/Praying.fbx", Texture{"testing/data/models/human.png"}}, animation_path},
 		AnimatedCharacter{Model{"testing/data/models/human.fbx", Texture{"testing/data/models/human.png"}}, animation_path},
 		AnimatedCharacter{Model{"testing/data/models/troll.fbx", Texture{"testing/data/models/human.png"}}, animation_path, 1e-2f},
@@ -47,8 +47,10 @@ private:
 			auto& skeleton = character.model().skeleton();
 			if (&skeleton != &source_skeleton_) 
 			{
-				auto const animation = animation_retargeting::retarget(source_animation, source_pose, skeleton.extract_pose());
-				skeleton.set_animation_values(animation);
+				auto const result = animation_retargeting::retarget(source_animation, source_pose, skeleton.extract_pose());
+				skeleton.set_animation_values(result.animation);
+				skeleton.set_bind_pose(result.bind_pose);
+				character.update_skeleton_mesh();
 			}
 
 			character.restart_animation();

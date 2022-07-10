@@ -103,7 +103,8 @@ public:
 
 	void update_bone_matrices()
 	{
-		auto const time = std::chrono::duration_cast<Seconds>(Clock_::now() - start_time_)*0.5f;
+		auto const time = std::chrono::duration_cast<Seconds>(Clock_::now() - start_time_);
+		// auto const time = Seconds{};
 
 		// Hack, remove later
 		if (time > skeleton_.bones()[0].translation_track.duration()) {
@@ -118,7 +119,7 @@ public:
 			// auto const local_scale = bone.local_bind_scale;
 			// auto const local_rotation = bone.local_bind_rotation;
 			// auto const local_translation = bone.local_bind_translation;
-			
+
 			auto const local_transform = bone.calculate_local_transform(local_scale, local_rotation, local_translation);
 			
 			bone.global_transform = bone.parent ? bone.parent->global_transform * local_transform : local_transform;
