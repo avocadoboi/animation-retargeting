@@ -1,10 +1,10 @@
 
 add_executable(testing 
+    include/animated_character.hpp
     include/animation.hpp
     include/app.hpp
     include/fbx.hpp
     include/glfw.hpp
-    include/mesh.hpp 
     include/model.hpp
     include/player_view.hpp
     include/scene.hpp

@@ -7,77 +7,86 @@ namespace testing {
 
 class App {
 private:
-    static constexpr auto window_size = glm::vec<2, int>{700, 600};
-    static constexpr auto window_title = "Animation retargeting";
+	static constexpr auto window_size = glm::vec<2, int>{700, 600};
+	static constexpr auto window_title = "Animation retargeting";
 
-    glfw::Instance instance_;
+	static Scene* scene_from_window_(GLFWwindow* const window) {
+		return static_cast<Scene*>(glfwGetWindowUserPointer(window));
+	}
 
-    GLFWwindow* window_;
-    glfw::InputState input_state_;
+	glfw::Instance instance_;
 
-    std::unique_ptr<Scene> scene_;
+	GLFWwindow* window_;
+	glfw::InputState input_state_;
 
-    void initialize_opengl_()
-    {
-        glfwMakeContextCurrent(window_);
+	std::unique_ptr<Scene> scene_;
 
-        if (!gladLoadGLLoader(reinterpret_cast<GLADloadproc>(glfwGetProcAddress))) {
-            throw std::runtime_error{"Failed to load OpenGL."};
-        }
+	void initialize_opengl_()
+	{
+		glfwMakeContextCurrent(window_);
 
-        glEnable(GL_DEPTH_TEST);
+		if (!gladLoadGLLoader(reinterpret_cast<GLADloadproc>(glfwGetProcAddress))) {
+			throw std::runtime_error{"Failed to load OpenGL."};
+		}
 
-        glfwSwapInterval(1);
-    }
+		glEnable(GL_DEPTH_TEST);
+
+		glfwSwapInterval(1);
+	}
+
 
 public:
-    App()
-    {
-        glfwWindowHint(GLFW_SAMPLES, 32);
+	App()
+	{
+		glfwWindowHint(GLFW_SAMPLES, 32);
 
-        window_ = glfwCreateWindow(window_size.x, window_size.y, window_title, nullptr, nullptr);
+		window_ = glfwCreateWindow(window_size.x, window_size.y, window_title, nullptr, nullptr);
 
-        if (!window_) {
-            throw std::runtime_error{"Failed to create window."};
-        }
+		if (!window_) {
+			throw std::runtime_error{"Failed to create window."};
+		}
 
-        input_state_ = glfw::InputState{window_};
+		input_state_ = glfw::InputState{window_};
 
-        initialize_opengl_();
+		initialize_opengl_();
 
-        scene_ = std::make_unique<Scene>(window_size);
+		scene_ = std::make_unique<Scene>(window_size);
 
-        glfwSetWindowUserPointer(window_, scene_.get());
+		glfwSetWindowUserPointer(window_, scene_.get());
 
-        glfwSetFramebufferSizeCallback(window_, [](GLFWwindow* const window, int const width, int const height) {
-            glViewport(0, 0, width, height);
-            static_cast<Scene*>(glfwGetWindowUserPointer(window))->handle_resize({width, height});
-        });
+		glfwSetFramebufferSizeCallback(window_, [](GLFWwindow* const window, int const width, int const height) {
+			glViewport(0, 0, width, height);
+			scene_from_window_(window)->handle_resize({width, height});
+		});
+		glfwSetKeyCallback(window_, [](GLFWwindow* const window, int const key, int const /*scancode*/, int const action, int const /*mods*/) {
+			if (action == GLFW_PRESS) {
+				scene_from_window_(window)->handle_key_press(key);
+			}
+		});
+	}
+	~App() {
+		glfwDestroyWindow(window_);
+	}
 
-    }
-    ~App() {
-        glfwDestroyWindow(window_);
-    }
+	App(App const&) = delete;
+	App const& operator=(App const&) = delete;
+	App(App&&) = delete;
+	App const& operator=(App&&) = delete;
 
-    App(App const&) = delete;
-    App const& operator=(App const&) = delete;
-    App(App&&) = delete;
-    App const& operator=(App&&) = delete;
+	void run() {
+		while (!glfwWindowShouldClose(window_)) {
+			input_state_.update();
+			scene_->update(input_state_);
+			
+			glClearColor(0.f, 0.f, 0.f, 1.f);
+			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-    void run() {
-        while (!glfwWindowShouldClose(window_)) {
-            input_state_.update();
-            scene_->update(input_state_);
-            
-            glClearColor(0.f, 0.f, 0.f, 1.f);
-            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-            scene_->draw();
-            
-            glfwSwapBuffers(window_);
-            glfwPollEvents();
-        }
-    }
+			scene_->draw();
+			
+			glfwSwapBuffers(window_);
+			glfwPollEvents();
+		}
+	}
 
 };
 
