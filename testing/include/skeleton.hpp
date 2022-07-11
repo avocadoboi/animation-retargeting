@@ -191,7 +191,8 @@ struct Bone {
 	Bone(Bone const* parent, std::string name, Id const id, FbxNode* const bone_node) :
 		parent{parent},
 		name{std::move(name)},
-		id{id}
+		id{id},
+		bind_transform{util::fbx_to_glm(bone_node->EvaluateGlobalTransform())}
 	{
 		/*
 			From the FBX SDK docs:
@@ -258,6 +259,7 @@ private:
 public:
 	void load_from_fbx_node(FbxNode* const node) 
 	{
+		
 		if (auto const* const attribute = node->GetNodeAttribute()) {
 			if (attribute->GetAttributeType() == FbxNodeAttribute::eSkeleton) {
 				add_bone_(node, nullptr);

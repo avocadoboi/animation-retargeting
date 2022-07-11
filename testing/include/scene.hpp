@@ -10,12 +10,13 @@ class Scene {
 private:
 	static constexpr auto player_position = glm::vec3{0.f, 8.f, 0.f};
 
-	static constexpr auto animation_path = "testing/data/models/vampire.fbx";
+	static constexpr auto animation_path = "testing/data/animations/mmakick.fbx";
 
-	std::array<AnimatedCharacter, 5> characters_{
-		AnimatedCharacter{Model{"testing/data/models/vampire.fbx", Texture{"testing/data/models/vampire.png"}}, animation_path},
+	std::array<AnimatedCharacter, 6> characters_{
+		AnimatedCharacter{Model{"testing/data/animations/mmakick.fbx", Texture{}}, animation_path},
 		AnimatedCharacter{Model{"testing/data/models/archer.fbx", Texture{"testing/data/models/archer.png"}}, animation_path},
-		AnimatedCharacter{Model{"testing/data/models/Praying.fbx", Texture{"testing/data/models/human.png"}}, animation_path},
+		AnimatedCharacter{Model{"testing/data/models/praying.fbx", Texture{"testing/data/models/human.png"}}, animation_path},
+		AnimatedCharacter{Model{"testing/data/models/vampire.fbx", Texture{"testing/data/models/vampire.png"}}, animation_path},
 		AnimatedCharacter{Model{"testing/data/models/human.fbx", Texture{"testing/data/models/human.png"}}, animation_path},
 		AnimatedCharacter{Model{"testing/data/models/troll.fbx", Texture{"testing/data/models/human.png"}}, animation_path, 1e-2f},
 	};
@@ -34,7 +35,7 @@ private:
 
 	void setup_characters_() 
 	{
-		constexpr auto spacing = 15.f;
+		constexpr auto spacing = 10.f;
 
 		auto x = -(static_cast<float>(characters_.size()) - 1.f)*spacing/2.f;
 

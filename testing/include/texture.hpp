@@ -40,6 +40,7 @@ private:
 	GLuint id_{};
 	
 public:
+	Texture() = default;
 	explicit Texture(char const* const file_path)
 	{
 		stbi_set_flip_vertically_on_load(true);
